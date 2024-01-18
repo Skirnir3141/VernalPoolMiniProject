@@ -27,6 +27,10 @@ ma.towns$verified.pools <- lengths(
   sf::st_intersects(
     x = ma.towns,
     y = sf::st_zm(verified.pools)))
+ma.towns$potential.pools <- lengths(
+  sf::st_intersects(
+    x = ma.towns,
+    y = sf::st_zm(potential.pools)))
 
 # Looks like the vast majority of towns have no pools...but, can that be true?
 hist(ma.towns$verified.pools)
@@ -103,6 +107,7 @@ terra::plot(ma.towns["pppd"])
 # Maybe the project is advising people on where to focus on verifying additoinal
 # pools?
 
+# Might be fun to plot Hudson and Berlin
 terra::plot(
   sf::st_geometry(
     ma.towns[ma.towns$TOWN %in% c("HUDSON", "BERLIN"), ]["TOWN"]),
@@ -119,3 +124,41 @@ terra::plot(
   col = "black",
   pch = 2,
   cex = .5)
+
+# Let's import the wetland objects and plot it vs pools for Hudson
+wetlands <- sf::st_read("./wetlandsdep/WETLANDSDEP_POLY.shp")
+dev.off()
+terra::plot(
+  sf::st_geometry(
+    ma.towns[ma.towns$TOWN %in% c("HUDSON"), ]["TOWN"]),
+  col = "white")
+terra::plot(
+  sf::st_geometry(
+    wetlands[
+      unlist(
+        sf::st_intersects(
+          x = ma.towns[ma.towns$TOWN %in% c("HUDSON"), ]["TOWN"],
+          y = wetlands)), ]),
+  add = TRUE,
+  col = "blue")
+terra::plot(
+  sf::st_geometry(sf::st_zm(verified.pools)),
+  add = TRUE,
+  col = "green",
+  pch = 20,
+  cex = .5)
+terra::plot(
+  sf::st_geometry(sf::st_zm(potential.pools)),
+  add = TRUE,
+  col = "red",
+  pch = 4,
+  cex = .5)
+
+
+test <- wetlands[
+  unlist(
+    sf::st_intersects(
+      x = ma.towns[ma.towns$TOWN %in% c("HUDSON"), ]["TOWN"],
+      y = wetlands)), ]
+
+
