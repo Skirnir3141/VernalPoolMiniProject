@@ -29,13 +29,37 @@ In this project, I aim to contribute to vernal pool conservation in Massachusett
 
 ## Methods
 
+Analysis was completed using R version 4.3.1. Data on [municipality boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), and [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005) was downloaded from the MassGIS website on January 18, 2024. Potential pools and wetlands were plotted versus municipal boundaries using the terra package in the 
+
 ```{r import, error=FALSE, warning=FALSE, message=FALSE}
 library(dplyr)
 library(terra)
 library(sf)
+
+setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
+
+# Import town boundary polygons, potential pool points, and wetland polygons.
+ma.towns <- sf::st_read("./townssurvey_shp/TOWNSSURVEY_POLY.shp")
+potential.pools <- sf::st_read("./pvp/PVP_PT.shp")
+wetlands <- sf::st_read("./wetlandsdep/WETLANDSDEP_POLY.shp")
+
+# Plot potential pools and wetlands versus town boundaries for visual
+# inspection.
+terra::plot(sf::st_geometry(ma.towns), col = "white")
+terra::plot(
+  sf::st_geometry(hudson.wetlands),
+  add = TRUE,
+  col = "blue")
+terra::plot(
+  sf::st_geometry(sf::st_zm(potential.pools)),
+  add = TRUE,
+  col = "green",
+  pch = 17,
+  cex = .5)
+
 ```
 
-Analysis was completed using R version 4.3.1. 
+ 
 
 ## Discussion
 
