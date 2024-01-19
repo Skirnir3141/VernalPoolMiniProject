@@ -5,7 +5,6 @@ library(dplyr)
 library(tidyverse)
 library(terra)
 library(sf)
-library(rgeos)
 
 # Import vectors
 ma <- sf::st_read("./outline25k/OUTLINE25K_POLY.shp")
@@ -241,12 +240,18 @@ hudson.pvp
 # wetland is deemed high value.  Cool.  Now we can apply this to all of the
 # potential vernal pools.
 
-
 potential.pools$within.wetland <- lengths(
   sf::st_intersects(potential.pools, wetlands))
-dist <- list()
-for (i in seq_along(potential.pools[[1]])) {
-  dist[i] <- NearestFeatureDistance(
-    potential.pools[i, ]$within.wetland,
-    potential.pools[i, ]$geometry)
+potential.pools.ww <- potential.pools[potential.pools$within.wetland == 1, ]
+potential.pools.ww$dtp <- NA
+potential.pools.nww <- potential.pools[potential.pools$within.wetland == 0, ]
+
+NearestFeatureDistanceTwo <- function(x) {
+  nw <- wetlands[sf::st_nearest_feature(x, wetlands), ]
+  z <- sf::st_distance(x, nw)
+  return(z)
+}
+dist <- vector("list", length = nrow(potential.pools.nww))
+for (i in seq_along(potential.pools.nww[[1]])) {
+  dist[i] <- NearestFeatureDistanceTwo(potential.pools.nww[i, ]$geometry)
 }
