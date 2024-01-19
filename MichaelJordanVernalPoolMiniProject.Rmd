@@ -32,6 +32,7 @@ In this project, I aim to contribute to vernal pool conservation in Massachusett
 library(dplyr)
 library(terra)
 library(sf)
+library(scales)
 
 setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
 
@@ -44,7 +45,7 @@ wetlands <- sf::st_read("./wetlandsdep/WETLANDSDEP_POLY.shp")
 # inspection.
 terra::plot(sf::st_geometry(ma.towns), col = "white")
 terra::plot(
-  sf::st_geometry(hudson.wetlands),
+  sf::st_geometry(wetlands),
   add = TRUE,
   col = "blue")
 terra::plot(
@@ -58,19 +59,36 @@ terra::plot(
 Analysis was completed using `substring(R.Version()$version.string, 1, 15)`, with GIS analysis completed using the terra and sf packages (see Rmd for full code). Data on [municipal boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), and [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005) was downloaded from the MassGIS website on January 18, 2024. Potential pools and wetlands were plotted versus municipal boundaries in the NAD83 / Massachusetts Mainland projection and visually inspected for errors.
 
 ```{r wetland, error=FALSE, warning=FALSE, message=FALSE}
-# Evaluate whether 
+# Evaluate whether potential pools fall within a wetland polygon
 potential.pools$within.wetland <- lengths(
   sf::st_intersects(potential.pools, wetlands))
-potential.pools.ww <- potential.pools[potential.pools$within.wetland == 1, ]
-potential.pools.ww$dtp <- NA
-potential.pools.nww <- potential.pools[potential.pools$within.wetland == 0, ]
-nrow(potential.pools.ww)
 
+# Split potential pools into those that fall within a wetland and those that do
+# not.  For potential pools within a wetland, set distance to wetland equal to
+# zero.
+pp.ww <- potential.pools[potential.pools$within.wetland == 1, ]
+pp.nww <- potential.pools[potential.pools$within.wetland == 0, ]
+pp.ww$dtw <- 0
+
+# For potential pools not within a wetland, calculate the distance to the
+# nearest wetland.  Join two potential pool objects to recreate overall object,
+# now with distance to the nearest pool.
+dist <- vector("list", length = nrow(pp.nww))
+for (i in 1:nrow(pp.nww)) {
+  dist[i] <- min(
+    sf::st_distance(
+      sf::st_geometry(pp.nww)[i],
+      sf::st_geometry(wetlands)))
+}
+pp.nww$dtw <- dist
+potential.pools <- rbind(pp.nww, pp.ww)
 ```
 
-To estimate whether a pool would benefit from certification, I evaluated its proximity to wetlands, since this defines WPA jurisdiction. First, I determined which potential pool points fell within the boundary of a wetland polygon. Of the `r nrow(potential.pools)`, `r sum(potential.pools$within.wetland)` fell within a wetland. For the remaining pools, I determined the distance from nearest wetland polygon.
+To determine which potential pools were likely to benefit from certification, I evaluated each pool's proximity to a wetland. Pool points that were inside of a wetland or within 100 feet of the nearest wetland were deemed to be likely to benefit from certification. Overall, `r scales::percent(round(nrow(potential.pools[potential.pools$dtw <= 30, ]) / nrow(potential.pools), digits = 2))` of potential pools or `r nrow(potential.pools[potential.pools$dtw <= 30, ])` overall were deemed high value.
 
+```{r development, error=FALSE, warning=FALSE, message=FALSE}
 
+```
 
 ## Discussion
 

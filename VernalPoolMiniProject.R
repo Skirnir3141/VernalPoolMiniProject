@@ -79,9 +79,9 @@ ma.towns[ma.towns$TOWN == "WESTPORT", ]
 # Cool, so, here are some stats on pool density by area and population density.
 ma.towns.agg <- sf::st_drop_geometry(
   ma.towns[ma.towns$TOWN %in% ma.towns[ma.towns$verified.pools > 0, ]$TOWN, ]) %>%
-  dplyr::group_by(TOWN, POP2010) %>%
+  dplyr::group_by(TOWN, POP2000) %>%
   dplyr::summarise(pools = sum(verified.pools), sm = sum(SQUARE_MIL)) %>%
-  dplyr::mutate(ppsm = pools / sm, pppd = pools / (POP2010 /  sm))
+  dplyr::mutate(ppsm = pools / sm, pppd = pools / (POP2000 /  sm))
 dplyr::arrange(ma.towns.agg, desc(ppsm))
 dplyr::arrange(ma.towns.agg, desc(pppd))
 
@@ -240,22 +240,66 @@ hudson.pvp
 # wetland is deemed high value.  Cool.  Now we can apply this to all of the
 # potential vernal pools.
 
+# Looks like ~2/3 of the potential pools are inside a wetland polygon.
 potential.pools$within.wetland <- lengths(
   sf::st_intersects(potential.pools, wetlands))
 potential.pools.ww <- potential.pools[potential.pools$within.wetland == 1, ]
-potential.pools.ww$dtp <- NA
+potential.pools.ww$dtp <- 0
 potential.pools.nww <- potential.pools[potential.pools$within.wetland == 0, ]
-nrow(potential.pools.ww)
 
-ppnw.geo <- sf::st_geometry(potential.pools.nww)
-w.geo <- sf::st_geometry(wetlands)
+# Ideally, I'd like to calculate the distance from the pools not in a polygon
+# to the nearest  polygon.  Unfortunately, although the code is straightforward,
+# the fact that there are so many (200k!) wetland polygons makes this really
+# computationally intensive (i.e., slow). I've tried a variety of ways to solve
+# this.  For example, excluding certain wetland types, excluding parts of the
+# state with few potential vernal pools, and exploring different ways to make my
+# loop more efficient.  Unfortunately, all of the common wetland types are
+# widely distributed, as are the potential pools, meaning that there isn't an
+# obvious block to exclude. Ways of making my loops more efficient didn't work.
 
-w.geo[sf::st_nearest_feature(ppnw.geo[1], w.geo)]
+# So, let's randomly sample to see what the typical distance from a wetland is
+# for pools not in a wetland.  Maybe we can decide to exclude or include all.
 
-
-dist <- vector("list", length = length(ppnw.geo))
-for (i in seq_along(ppnw.geo)) {
-  dist[i] <- sf::st_distance(
-    ppnw.geo[i],
-    w.geo[sf::st_nearest_feature(ppnw.geo[i], w.geo)])
+ppnw.sample <- potential.pools.nww[sample(nrow(potential.pools.nww), 100), ]
+dist <- vector("list", length = nrow(ppnw.sample))
+for (i in 1:nrow(ppnw.sample)) {
+  dist[i] <- min(
+    sf::st_distance(
+      sf::st_geometry(ppnw.sample)[i],
+      sf::st_geometry(wetlands)))
 }
+mean(unlist(dist))
+median(unlist(dist))
+quantile(unlist(dist), probs = c(.1, .25, .5, .75, .9))
+
+# Unfortunately, over half of the pools not near a wetland are within 100 feet.
+# Filtering by pool proximity to a wetland is only going to remove about 15% of
+# records.  Not a ton.  That doesn't make things tractable. Let's see if we can
+# focus on some towns instead.
+
+ma.towns.agg <- sf::st_drop_geometry(
+  ma.towns[ma.towns$TOWN %in% ma.towns[ma.towns$potential.pools > 0, ]$TOWN, ]) %>%
+  dplyr::group_by(TOWN, POP2000) %>%
+  dplyr::summarise(pools = sum(potential.pools), sm = sum(SQUARE_MIL)) %>%
+  dplyr::mutate(
+    pools,
+    perc_pools = pools / sum(ma.towns$potential.pools),
+    poppsm = POP2000 / sm,
+    ppsm = pools / sm,
+    pppd = pools / (POP2000 /  sm))
+
+ma.towns.agg
+dplyr::arrange(ma.towns.agg, desc(poppsm))
+dplyr::arrange(ma.towns.agg, desc(perc_pools))
+
+# Unfortunately, it doesn't look like there are towns with mega high pool
+# distribution.  Maybe it's time to concede defeat and just focus on part of the
+# state.
+
+
+
+# Useful 
+potential.pools$dtw <- apply(
+  potential.pools["within.wetland"],
+  1,
+  function(x) if(x[1] == 1) {0})
