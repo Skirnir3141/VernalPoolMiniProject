@@ -245,13 +245,17 @@ potential.pools$within.wetland <- lengths(
 potential.pools.ww <- potential.pools[potential.pools$within.wetland == 1, ]
 potential.pools.ww$dtp <- NA
 potential.pools.nww <- potential.pools[potential.pools$within.wetland == 0, ]
+nrow(potential.pools.ww)
 
-NearestFeatureDistanceTwo <- function(x) {
-  nw <- wetlands[sf::st_nearest_feature(x, wetlands), ]
-  z <- sf::st_distance(x, nw)
-  return(z)
-}
-dist <- vector("list", length = nrow(potential.pools.nww))
-for (i in seq_along(potential.pools.nww[[1]])) {
-  dist[i] <- NearestFeatureDistanceTwo(potential.pools.nww[i, ]$geometry)
+ppnw.geo <- sf::st_geometry(potential.pools.nww)
+w.geo <- sf::st_geometry(wetlands)
+
+w.geo[sf::st_nearest_feature(ppnw.geo[1], w.geo)]
+
+
+dist <- vector("list", length = length(ppnw.geo))
+for (i in seq_along(ppnw.geo)) {
+  dist[i] <- sf::st_distance(
+    ppnw.geo[i],
+    w.geo[sf::st_nearest_feature(ppnw.geo[i], w.geo)])
 }

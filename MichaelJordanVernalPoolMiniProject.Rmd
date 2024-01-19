@@ -23,15 +23,12 @@ Because of their biodiversity significance, vernal pools are protected under a v
 
 The requirement that a vernal pool fall within WPA jurisdictional resource area is not hugely constraining since WPA jurisdiction is fairly broad, encompassing essentially all wetlands in Massachusetts (310 CMR 10.02 § 1, 1987). However, vernal pool certification significantly constrains protection because it is a passive process conducted on a volunteer basis by private citizens, not an active process by a government body (MA DFW, 2009). If a citizen would like to request certification of a potential vernal pool, they must submit biological data to the NHESP.  Only once approved as a certified vernal pool and only once it has been established that the pool falls under WPA jurisdiction is it protected from development.
 
-To aid the protecting vernal pools, the NHESP has developed a dataset of potential vernal pool GIS coordinates based on aerial photography that took place between 1993 and 2000 (Burne, 2001). Of course, such a dataset may suffer from errors of omission or commission. But, it offers a reasonable starting point for citizens groups interested in preserving vernal pools. However, the volume of records in this dataset (29,723 as of January 18, 2024) presents a prioritization problem for citizen groups, which may have limited time and resources to devote to pool certification.
+To aid the protecting vernal pools, the NHESP has developed a dataset of potential vernal pool GIS coordinates based on aerial photography that took place between 1993 and 2000 (Burne, 2001). Of course, such a dataset may suffer from errors of omission or commission. But, it offers a reasonable starting point for citizens groups interested in preserving vernal pools. However, the volume of records in this data set (29,723 as of January 18, 2024) presents a prioritization problem for citizen groups, which may have limited time and resources to devote to pool certification.
 
 In this project, I aim to contribute to vernal pool conservation in Massachusetts by identifying which pools in the potential vernal pool dataset are more likely to benefit from certification and are more likely to be under threat. Additionally, I hope to identify geographic hot spots of such pools. This information could be used by citizen groups to better target their vernal pool conservation efforts.
 
 ## Methods
-
-Analysis was completed using R version 4.3.1. Data on [municipality boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), and [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005) was downloaded from the MassGIS website on January 18, 2024. Potential pools and wetlands were plotted versus municipal boundaries using the terra package in the 
-
-```{r import, error=FALSE, warning=FALSE, message=FALSE}
+```{r import, include=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 library(dplyr)
 library(terra)
 library(sf)
@@ -56,12 +53,28 @@ terra::plot(
   col = "green",
   pch = 17,
   cex = .5)
+```
+
+Analysis was completed using `substring(R.Version()$version.string, 1, 15)`, with GIS analysis completed using the terra and sf packages (see Rmd for full code). Data on [municipal boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), and [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005) was downloaded from the MassGIS website on January 18, 2024. Potential pools and wetlands were plotted versus municipal boundaries in the NAD83 / Massachusetts Mainland projection and visually inspected for errors.
+
+```{r wetland, error=FALSE, warning=FALSE, message=FALSE}
+# Evaluate whether 
+potential.pools$within.wetland <- lengths(
+  sf::st_intersects(potential.pools, wetlands))
+potential.pools.ww <- potential.pools[potential.pools$within.wetland == 1, ]
+potential.pools.ww$dtp <- NA
+potential.pools.nww <- potential.pools[potential.pools$within.wetland == 0, ]
+nrow(potential.pools.ww)
 
 ```
 
- 
+To estimate whether a pool would benefit from certification, I evaluated its proximity to wetlands, since this defines WPA jurisdiction. First, I determined which potential pool points fell within the boundary of a wetland polygon. Of the `r nrow(potential.pools)`, `r sum(potential.pools$within.wetland)` fell within a wetland. For the remaining pools, I determined the distance from nearest wetland polygon.
+
+
 
 ## Discussion
+
+This was necessarily an imprecise process for several reasons.  First, the WPA specifies that the boundary edge of a pool must fall within 100 feet of a wetland. But, potential pools were recorded as points in space, not as estimated pool boundaries. Second, potential pool and wetland data cover different time periods (1993-200 vs 2005), both over a decade in the past. Pool location and wetland boundaries may not coincide with their estimated parameters in these data sets today. Third, I transformed the three dimensional pool point data into two dimensional data to allow it to be interpreted versus the two dimensional wetland boundary data.
 
 ## Results
 
