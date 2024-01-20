@@ -296,7 +296,106 @@ dplyr::arrange(ma.towns.agg, desc(perc_pools))
 # distribution.  Maybe it's time to concede defeat and just focus on part of the
 # state.
 
+# Screw it, we're just gonna do one county.
 
+
+county.agg <- sf::st_drop_geometry(ma.towns) %>%
+  dplyr::group_by(FIPS_COUNT) %>%
+  dplyr::summarise(
+    pools = sum(potential.pools),
+    sm = sum(SQUARE_MIL),
+    pop = sum(POP2000)) %>%
+  dplyr::mutate(
+    pools,
+    perc_pools = pools / sum(ma.towns$potential.pools),
+    poppsm = pop / sm,
+    ppsm = pools / sm,
+    pppd = pools / (pop /  sm))
+dplyr::arrange(county.agg, desc(pppd))
+dplyr::arrange(county.agg, desc(ppsm))
+
+
+dist <- vector("list", length = nrow(worcester.pp.nww))
+start_time <- Sys.time()
+for (i in 1:nrow(worcester.pp.nww)) {
+  dist[i] <- min(
+    sf::st_distance(
+      sf::st_geometry(worcester.pp.nww)[i],
+      sf::st_geometry(worcester.wetlands)))
+}
+end_time <- Sys.time()
+end_time - start_time
+worcester.pp.nww$dtw <- dist
+worcester.pp <- dplyr::arrange(rbind(worcester.pp.nww, worcester.pp.ww), PVP_NUMBER)
+
+
+lu <- sf::st_read("./landcover_use_index_poly/LANDCOVER_USE_INDEX_POLY.shp")
+lu.2 <- sf::st_transform(lu, 26986)
+lu
+lu.2
+test <- lu.2[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(worcester.towns),
+      y = sf::st_geometry(lu.2)
+    ))), ]
+needed.tiles <- unique(test$TILENAME)
+needed.tiles
+
+print(lu[lu$TILENAME %in% needed.tiles, ], n = 100)
+
+
+R09C11 <- sf::st_read("./LCLU_R09C11/LCLU_R09C11.shp")
+R09C11 <- sf::st_transform(R09C11, 26986)
+R09C11.f <- R09C11[
+  R09C11$COVERCODE %in% c(2) | R09C11$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]
+test <- worcester.pp.f[unique(
+  unlist(
+    sf::st_intersects(
+      x = sf::st_geometry(R09C11.f),
+      y = sf::st_geometry(worcester.pp)
+    ))), ]
+
+test <- sf::st_read("./lclu_gdb/MA_LCLU2016.gdb", layer = "LANDCOVER_LANDUSE_POLY")
+sf::st_layers("./lclu_gdb/MA_LCLU2016.gdb")
+
+test
+
+print(
+  sf::st_drop_geometry(R09C11) %>%
+    group_by(COVERNAME, COVERCODE, USEGENNAME,  USEGENCODE) %>%
+    summarise(n = n()) %>%
+    arrange(COVERNAME, USEGENNAME),
+  n = 200)
+
+print(
+  sf::st_drop_geometry(R09C11) %>%
+    group_by(USEGENNAME,  USEGENCODE) %>%
+    summarise(n = n()) %>%
+    arrange(USEGENNAME),
+  n = 200)
+
+dev.off()
+
+terra::plot(sf::st_geometry(worcester.towns))
+terra::plot(sf::st_geometry(R09C11))
+
+terra::plot(sf::st_geometry(worcester.towns), col = "white", add = TRUE)
+
+
+terra::plot(
+  sf::st_geometry(worcester.wetlands),
+  add = TRUE,
+  col = "blue")
+terra::plot(
+  sf::st_geometry(sf::st_zm(worcester.pp)),
+  add = TRUE,
+  col = "green",
+  pch = 17,
+  cex = .5)
+
+
+worcester.pp.f <- worcester.pp[worcester.pp$dtw <= 30, ]
 
 # Useful 
 potential.pools$dtw <- apply(

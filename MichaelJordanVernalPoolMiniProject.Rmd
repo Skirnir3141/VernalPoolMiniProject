@@ -1,5 +1,5 @@
 ---
-title: "Prioritizing Vernal Pool Conservation In Massachusetts"
+title: "Prioritizing Vernal Pool Conservation In Worcestor County, Massachusetts"
 author: "Michael Jordan"
 date: "2024-01-19"
 output: pdf_document
@@ -59,32 +59,78 @@ terra::plot(
 Analysis was completed using `substring(R.Version()$version.string, 1, 15)`, with GIS analysis completed using the terra and sf packages (see Rmd for full code). Data on [municipal boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), and [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005) was downloaded from the MassGIS website on January 18, 2024. Potential pools and wetlands were plotted versus municipal boundaries in the NAD83 / Massachusetts Mainland projection and visually inspected for errors.
 
 ```{r wetland, error=FALSE, warning=FALSE, message=FALSE}
+# Evaluate which county has the most pools indexed per unit of population
+# density (people per square mile).
+county.agg <- sf::st_drop_geometry(ma.towns) %>%
+  dplyr::group_by(FIPS_COUNT) %>%
+  dplyr::summarise(
+    pools = sum(potential.pools),
+    sm = sum(SQUARE_MIL),
+    pop = sum(POP2000)) %>%
+  dplyr::mutate(
+    tot.pools = pools,
+    perc.pools = pools / sum(ma.towns$potential.pools),
+    pop.den = pop / sm,
+    pool.den = pools / sm,
+    pools.per.pop.den = pools / (pop /  sm)) %>%
+  dplyr::arrange(desc(pools.per.pop.den))
+
+# Subset town, potential pool, and wetland objects to only include Worcester
+# county and plot to validate.
+worcester.towns <- ma.towns[ma.towns$FIPS_COUNT %in% c(27), ]
+worcester.wetlands <- wetlands[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(worcester.towns),
+      y = sf::st_geometry(wetlands)
+    ))), ]
+worcester.pp <- potential.pools[unlist(
+  unique(
+    sf::st_intersects(
+      x = worcester.towns["TOWN"],
+      y = sf::st_geometry(potential.pools)
+    ))), ]
+terra::plot(sf::st_geometry(worcester.towns), col = "white")
+terra::plot(
+  sf::st_geometry(worcester.wetlands),
+  add = TRUE,
+  col = "blue")
+terra::plot(
+  sf::st_geometry(sf::st_zm(worcester.pp)),
+  add = TRUE,
+  col = "green",
+  pch = 17,
+  cex = .5)
+
 # Evaluate whether potential pools fall within a wetland polygon
-potential.pools$within.wetland <- lengths(
-  sf::st_intersects(potential.pools, wetlands))
+worcester.pp$within.wetland <- lengths(
+  sf::st_intersects(worcester.pp, wetlands))
 
 # Split potential pools into those that fall within a wetland and those that do
 # not.  For potential pools within a wetland, set distance to wetland equal to
 # zero.
-pp.ww <- potential.pools[potential.pools$within.wetland == 1, ]
-pp.nww <- potential.pools[potential.pools$within.wetland == 0, ]
-pp.ww$dtw <- 0
+worcester.pp.ww <- worcester.pp[worcester.pp$within.wetland == 1, ]
+worcester.pp.nww <- worcester.pp[worcester.pp$within.wetland == 0, ]
+worcester.pp.ww$dtw <- 0
 
 # For potential pools not within a wetland, calculate the distance to the
 # nearest wetland.  Join two potential pool objects to recreate overall object,
 # now with distance to the nearest pool.
-dist <- vector("list", length = nrow(pp.nww))
-for (i in 1:nrow(pp.nww)) {
+dist <- vector("list", length = nrow(worcester.pp.nww))
+for (i in 1:nrow(worcester.pp.nww)) {
   dist[i] <- min(
     sf::st_distance(
-      sf::st_geometry(pp.nww)[i],
-      sf::st_geometry(wetlands)))
+      sf::st_geometry(worcester.pp.nww)[i],
+      sf::st_geometry(worcester.wetlands)))
 }
-pp.nww$dtw <- dist
-potential.pools <- rbind(pp.nww, pp.ww)
+worcester.pp.nww$dtw <- dist
+worcester.pp <- rbind(worcester.pp.nww, worcester.pp.ww)
+worcester.pp.f <- worcester.pp[worcester.pp$dtw <= 30, ]
 ```
 
-To determine which potential pools were likely to benefit from certification, I evaluated each pool's proximity to a wetland. Pool points that were inside of a wetland or within 100 feet of the nearest wetland were deemed to be likely to benefit from certification. Overall, `r scales::percent(round(nrow(potential.pools[potential.pools$dtw <= 30, ]) / nrow(potential.pools), digits = 2))` of potential pools or `r nrow(potential.pools[potential.pools$dtw <= 30, ])` overall were deemed high value.
+To make the analysis tractable, I chose to focus on Worcester county, which has the highest volume of potential pools indexed versus population density (by indexing on population density, I hope to proxy for the county where pools are most under threat to development).
+
+To determine which potential pools were likely to benefit from certification, I evaluated each pool's proximity to a wetland. Pool points that were inside of a wetland or within 100 feet of the nearest wetland were deemed to be candidates for certification. `r nrow(worcester.pp.f)`potential pools or `r scales::percent(round(nrow(worcester.pp.f) / nrow(worcester.pp), digits = 2))` of pools in the county passed this threshold.
 
 ```{r development, error=FALSE, warning=FALSE, message=FALSE}
 
@@ -92,7 +138,13 @@ To determine which potential pools were likely to benefit from certification, I 
 
 ## Discussion
 
-This was necessarily an imprecise process for several reasons.  First, the WPA specifies that the boundary edge of a pool must fall within 100 feet of a wetland. But, potential pools were recorded as points in space, not as estimated pool boundaries. Second, potential pool and wetland data cover different time periods (1993-200 vs 2005), both over a decade in the past. Pool location and wetland boundaries may not coincide with their estimated parameters in these data sets today. Third, I transformed the three dimensional pool point data into two dimensional data to allow it to be interpreted versus the two dimensional wetland boundary data.
+This analysis suffered from several sources of imprecision, most of which suggest that it is a conservative estimate of vernal pools that could benefit from certification.
+
+First, potential pools were recorded based on visual inspection of aerial photography, which is necessarily open to human error. The NHESP conducted field tests to validate the precision of this methodology and found less than 3% false positives (Burne, 2001). They were not able to determine a false negative rate, but expect that small pools below ~50-60 feet in diameter were not reliably identified (Burne, 2001). This suggests that my estimate is an under count.
+
+Second, there is imprecision around the representation of potential pools as points in two dimensional space. Estimates of potential pool points based on the center of pools in aerial photography had a precision of plus or minus 15 feet (Burne, 2001). Additionally, there is some imprecision inherent in estimating the distance between points after coalescing them from three dimensional to two dimensional space. However, on balance, I believe my estimate of the distance of potential pools to the nearest wetland to be conservative for two reasons. First, because pools could not reliably be identified until were at least 125 feet in diameter, it's likely that most potential pools in the data set are much larger than a 15 foot margin of error. Second, under the WPA, it is not the distance from the pool center to the nearest wetland that determines jurisdiction, it is the distance from the pool boundary to the nearest wetland. By using a 100 foot threshold based on pool center, my estimate is likely to be an undercount.
+
+Finally, potential pool and wetland data cover slightly different time periods (1993-200 vs 2005), both over a decade in the past. Pool location and wetland boundaries may not coincide with their estimated parameters in these data sets today.
 
 ## Results
 
