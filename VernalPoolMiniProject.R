@@ -328,11 +328,9 @@ end_time - start_time
 worcester.pp.nww$dtw <- dist
 worcester.pp <- dplyr::arrange(rbind(worcester.pp.nww, worcester.pp.ww), PVP_NUMBER)
 
-
+worcester.towns <- ma.towns[ma.towns$FIPS_COUNT %in% c(27), ]
 lu <- sf::st_read("./landcover_use_index_poly/LANDCOVER_USE_INDEX_POLY.shp")
 lu.2 <- sf::st_transform(lu, 26986)
-lu
-lu.2
 test <- lu.2[unlist(
   unique(
     sf::st_intersects(
@@ -340,12 +338,32 @@ test <- lu.2[unlist(
       y = sf::st_geometry(lu.2)
     ))), ]
 needed.tiles <- unique(test$TILENAME)
-needed.tiles
-
-print(lu[lu$TILENAME %in% needed.tiles, ], n = 100)
+lu[lu$TILENAME %in% needed.tiles, ]$SHP_LINK
 
 
-R09C11 <- sf::st_read("./LCLU_R09C11/LCLU_R09C11.shp")
+
+worcester.d <- sf::st_read(
+  paste("./tiles/LCLU_", needed.tiles[1], "/LCLU_", test[1], ".shp", sep = ""))
+worcester.d <- worcester.d[
+  worcester.d$COVERCODE %in% c(2) |
+    worcester.d$USEGENCODE %in% c(
+      7, 33, 4, 20, 10, 8, 12, 11, 55), ]["TILENAME"]
+start_time <- Sys.time()
+for (i in 2:length(needed.tiles)) {
+  shp <- sf::st_read(
+    paste("./tiles/LCLU_", needed.tiles[i], "/LCLU_", needed.tiles[i], ".shp", sep = ""))
+  shp <- shp[
+    shp$COVERCODE %in% c(2) |
+      shp$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]["TILENAME"]
+  worcester.d <- rbind(worcester.d, shp)
+}
+end_time <- Sys.time()
+end_time - start_time
+
+
+
+
+
 R09C11 <- sf::st_transform(R09C11, 26986)
 R09C11.f <- R09C11[
   R09C11$COVERCODE %in% c(2) | R09C11$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]
@@ -356,7 +374,16 @@ test <- worcester.pp.f[unique(
       y = sf::st_geometry(worcester.pp)
     ))), ]
 
-test <- sf::st_read("./lclu_gdb/MA_LCLU2016.gdb", layer = "LANDCOVER_LANDUSE_POLY")
+sf::st_layers("./lclu_gdb/MA_LCLU2016.gdb")
+test <- sf::st_read("./lclu_gdb/MA_LCLU2016.gdb", layer = "LANDCOVER_USE_INDEX_POLY")
+test <- terra::vect("./lclu_gdb/MA_LCLU2016.gdb", layer = "LANDCOVER_LANDUSE_POLY", proxy = TRUE)
+test2 <- terra::query(
+  test,
+  vars = c("TILENAME", "USEGENCODE"),
+  where = "TILENAME IN ('R09C11')")
+
+test
+
 sf::st_layers("./lclu_gdb/MA_LCLU2016.gdb")
 
 test
