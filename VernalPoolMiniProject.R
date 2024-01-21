@@ -328,65 +328,75 @@ end_time - start_time
 worcester.pp.nww$dtw <- dist
 worcester.pp <- dplyr::arrange(rbind(worcester.pp.nww, worcester.pp.ww), PVP_NUMBER)
 
-worcester.towns <- ma.towns[ma.towns$FIPS_COUNT %in% c(27), ]
-lu <- sf::st_read("./landcover_use_index_poly/LANDCOVER_USE_INDEX_POLY.shp")
-lu.2 <- sf::st_transform(lu, 26986)
-test <- lu.2[unlist(
+cm.towns <- ma.towns[
+  ma.towns$TOWN %in% c(
+    "HUDSON"), ]
+cm.vp <- verified.pools[unlist(
   unique(
     sf::st_intersects(
-      x = sf::st_geometry(worcester.towns),
-      y = sf::st_geometry(lu.2)
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(sf::st_zm(verified.pools))
     ))), ]
-needed.tiles <- unique(test$TILENAME)
-lu[lu$TILENAME %in% needed.tiles, ]$SHP_LINK
-
-
-
-worcester.d <- sf::st_read(
-  paste("./tiles/LCLU_", needed.tiles[1], "/LCLU_", test[1], ".shp", sep = ""))
-worcester.d <- worcester.d[
-  worcester.d$COVERCODE %in% c(2) |
-    worcester.d$USEGENCODE %in% c(
-      7, 33, 4, 20, 10, 8, 12, 11, 55), ]["TILENAME"]
-start_time <- Sys.time()
-for (i in 2:length(needed.tiles)) {
+cm.pp <- potential.pools[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(sf::st_zm(potential.pools))
+    ))), ]
+cm.wetlands <- wetlands[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(wetlands)
+    ))), ]
+tile.index <- sf::st_read("./landcover_use_index_poly/LANDCOVER_USE_INDEX_POLY.shp")
+tile.index <- sf::st_transform(tile.index, 26986)
+needed.tiles <- tile.index[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(tile.index)
+    ))), ]
+needed.tiles <- needed.tiles[needed.tiles$TILENAME %in% unique(needed.tiles$TILENAME), ]$TILENAME
+tiles.l <- vector("list", length = length(needed.tiles))
+for (i in 1:length(needed.tiles)) {
   shp <- sf::st_read(
     paste("./tiles/LCLU_", needed.tiles[i], "/LCLU_", needed.tiles[i], ".shp", sep = ""))
-  shp <- shp[
-    shp$COVERCODE %in% c(2) |
-      shp$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]["TILENAME"]
-  worcester.d <- rbind(worcester.d, shp)
+  tiles.l[[i]] <- shp[c("COVERCODE", "USEGENCODE")]
 }
-end_time <- Sys.time()
-end_time - start_time
+cm.tiles <- do.call(rbind, tiles.l)
+cm.tiles <- sf::st_transform(cm.tiles, 26986)
 
+cm.pp$within.wetland <- lengths(
+  sf::st_intersects(cm.pp, cm.wetlands))
+cm.pp.ww <- cm.pp[cm.pp$within.wetland == 1, ]
+cm.pp.nww <- cm.pp[cm.pp$within.wetland == 0, ]
+cm.pp.ww$dtw <- 0
 
+dist <- vector("list", length = nrow(cm.pp.nww))
+for (i in 1:nrow(cm.pp.nww)) {
+  dist[i] <- min(
+    sf::st_distance(
+      sf::st_geometry(cm.pp.nww)[i],
+      sf::st_geometry(cm.wetlands)))
+}
+cm.pp.nww$dtw <- dist
+cm.pp <- rbind(cm.pp.nww, cm.pp.ww)
 
-
-
-R09C11 <- sf::st_transform(R09C11, 26986)
-R09C11.f <- R09C11[
-  R09C11$COVERCODE %in% c(2) | R09C11$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]
-test <- worcester.pp.f[unique(
+test <- unique(
   unlist(
     sf::st_intersects(
-      x = sf::st_geometry(R09C11.f),
-      y = sf::st_geometry(worcester.pp)
-    ))), ]
+      x = sf::st_geometry(
+        cm.tiles[
+          cm.tiles$COVERCODE %in% c(2) |
+            cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]
+      ),
+      y = sf::st_geometry(cm.pp)
+    )))
+cm.pp$within.bs <- ifelse(seq_len(nrow(cm.pp)) %in% test, 0, NA)
 
-sf::st_layers("./lclu_gdb/MA_LCLU2016.gdb")
-test <- sf::st_read("./lclu_gdb/MA_LCLU2016.gdb", layer = "LANDCOVER_USE_INDEX_POLY")
-test <- terra::vect("./lclu_gdb/MA_LCLU2016.gdb", layer = "LANDCOVER_LANDUSE_POLY", proxy = TRUE)
-test2 <- terra::query(
-  test,
-  vars = c("TILENAME", "USEGENCODE"),
-  where = "TILENAME IN ('R09C11')")
 
-test
 
-sf::st_layers("./lclu_gdb/MA_LCLU2016.gdb")
-
-test
 
 print(
   sf::st_drop_geometry(R09C11) %>%
@@ -401,28 +411,6 @@ print(
     summarise(n = n()) %>%
     arrange(USEGENNAME),
   n = 200)
-
-dev.off()
-
-terra::plot(sf::st_geometry(worcester.towns))
-terra::plot(sf::st_geometry(R09C11))
-
-terra::plot(sf::st_geometry(worcester.towns), col = "white", add = TRUE)
-
-
-terra::plot(
-  sf::st_geometry(worcester.wetlands),
-  add = TRUE,
-  col = "blue")
-terra::plot(
-  sf::st_geometry(sf::st_zm(worcester.pp)),
-  add = TRUE,
-  col = "green",
-  pch = 17,
-  cex = .5)
-
-
-worcester.pp.f <- worcester.pp[worcester.pp$dtw <= 30, ]
 
 # Useful 
 potential.pools$dtw <- apply(
