@@ -393,7 +393,7 @@ for (i in 1:nrow(cm.pp.nww)) {
 cm.pp.nww$dtw <- dist
 cm.pp <- rbind(cm.pp.nww, cm.pp.ww)
 
-# Check if pools overlap with an impervious feature. If they do, se their
+# Check if pools overlap with an impervious feature. If they do, set their
 # distance to the nearest feature equal to zero.
 cm.pp$within.feature <- lengths(
   sf::st_intersects(
@@ -444,11 +444,11 @@ cm.pp$col <- apply(
   1,
   function(x) ifelse(
     x[1] == 1,
-    "blue",
+    "green",
     ifelse(
       x[1] == 2,
-      "green",
-      "brown")))
+      "brown",
+      "red")))
 
 cm.pp
 
