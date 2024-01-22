@@ -395,21 +395,17 @@ cm.pp <- rbind(cm.pp.nww, cm.pp.ww)
 
 # Check if pools overlap with an impervious feature. If they do, se their
 # distance to the nearest feature equal to zero.
-cm.pp.index <- unique(
-  unlist(
-    sf::st_intersects(
-      x = sf::st_geometry(
-        cm.tiles[
-          cm.tiles$COVERCODE %in% c(2) |
-            cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]
-      ),
-      y = sf::st_geometry(cm.pp)
-    )))
-cm.pp.wf <- cm.pp[cm.pp.index, ]
+cm.pp$within.feature <- lengths(
+  sf::st_intersects(
+    sf::st_geometry(cm.pp),
+    sf::st_geometry(
+      cm.tiles[
+        cm.tiles$COVERCODE %in% c(2) |
+          cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ])))
+cm.pp.wf <- cm.pp[cm.pp$within.feature == 1, ]
 cm.pp.wf$dtf <- 0
-cm.pp.nwf <- cm.pp[-cm.pp.index, ]
+cm.pp.nwf <- cm.pp[cm.pp$within.feature == 0, ]
 
-# If they don't, get the distance to the nearest feature.
 dist2 <- vector("list", length = nrow(cm.pp.nwf))
 for (i in 1:nrow(cm.pp.nwf)) {
   dist2[i] <- min(
@@ -422,7 +418,60 @@ for (i in 1:nrow(cm.pp.nwf)) {
 }
 cm.pp.nwf$dtf <- dist2
 cm.pp <- rbind(cm.pp.nwf, cm.pp.wf)
+
+cm.pp$priority <- apply(
+  cm.pp[c("dtw", "dtf")],
+  1,
+  function(x) ifelse(
+    x[1] <= 30 & x[2] <= 150,
+    1,
+    ifelse(
+      x[1] <= 30 & x[2] > 150,
+      2,
+      3)))
+cm.pp$pch <- apply(
+  cm.pp["priority"],
+  1,
+  function(x) ifelse(
+    x[1] == 1,
+    16,
+    ifelse(
+      x[1] == 2,
+      17,
+      15)))
+cm.pp$col <- apply(
+  cm.pp["priority"],
+  1,
+  function(x) ifelse(
+    x[1] == 1,
+    "blue",
+    ifelse(
+      x[1] == 2,
+      "green",
+      "brown")))
+
 cm.pp
+
+terra::plot(
+  sf::st_geometry(cm.towns["TOWN"]),
+  col = "white")
+terra::plot(
+  sf::st_geometry(cm.wetlands),
+  add = TRUE,
+  col = "blue")
+terra::plot(
+  sf::st_geometry(sf::st_zm(cm.pp)),
+  add = TRUE,
+  col = cm.pp$col,
+  pch = cm.pp$pch,
+  cex = 1)
+terra::plot(
+  sf::st_geometry(
+    cm.tiles[
+      cm.tiles$COVERCODE %in% c(2) |
+        cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]),
+  add = TRUE,
+  col = "grey")
 
 
 
