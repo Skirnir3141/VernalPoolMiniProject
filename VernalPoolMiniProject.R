@@ -328,6 +328,9 @@ end_time - start_time
 worcester.pp.nww$dtw <- dist
 worcester.pp <- dplyr::arrange(rbind(worcester.pp.nww, worcester.pp.ww), PVP_NUMBER)
 
+
+
+# Get town vectors. Get pools and wetlands that intersect with towns.
 cm.towns <- ma.towns[
   ma.towns$TOWN %in% c(
     "HUDSON"), ]
@@ -349,6 +352,9 @@ cm.wetlands <- wetlands[unlist(
       x = sf::st_geometry(cm.towns),
       y = sf::st_geometry(wetlands)
     ))), ]
+
+# Get index of tiles that intersect with towns. Convert to MA projection. Load
+# tiles, compile into one object, convert to projection.
 tile.index <- sf::st_read("./landcover_use_index_poly/LANDCOVER_USE_INDEX_POLY.shp")
 tile.index <- sf::st_transform(tile.index, 26986)
 needed.tiles <- tile.index[unlist(
@@ -367,12 +373,16 @@ for (i in 1:length(needed.tiles)) {
 cm.tiles <- do.call(rbind, tiles.l)
 cm.tiles <- sf::st_transform(cm.tiles, 26986)
 
+# Check whether a potential pool overlaps with a wetland. If it does, set its
+# distance to wetland equal to zero.
 cm.pp$within.wetland <- lengths(
   sf::st_intersects(cm.pp, cm.wetlands))
 cm.pp.ww <- cm.pp[cm.pp$within.wetland == 1, ]
 cm.pp.nww <- cm.pp[cm.pp$within.wetland == 0, ]
 cm.pp.ww$dtw <- 0
 
+# If it doesn't intersect with a wetland, calculate the distance to the nearest
+# wetland.
 dist <- vector("list", length = nrow(cm.pp.nww))
 for (i in 1:nrow(cm.pp.nww)) {
   dist[i] <- min(
@@ -383,7 +393,9 @@ for (i in 1:nrow(cm.pp.nww)) {
 cm.pp.nww$dtw <- dist
 cm.pp <- rbind(cm.pp.nww, cm.pp.ww)
 
-test <- unique(
+# Check if pools overlap with an impervious feature. If they do, se their
+# distance to the nearest feature equal to zero.
+cm.pp.index <- unique(
   unlist(
     sf::st_intersects(
       x = sf::st_geometry(
@@ -393,7 +405,24 @@ test <- unique(
       ),
       y = sf::st_geometry(cm.pp)
     )))
-cm.pp$within.bs <- ifelse(seq_len(nrow(cm.pp)) %in% test, 0, NA)
+cm.pp.wf <- cm.pp[cm.pp.index, ]
+cm.pp.wf$dtf <- 0
+cm.pp.nwf <- cm.pp[-cm.pp.index, ]
+
+# If they don't, get the distance to the nearest feature.
+dist2 <- vector("list", length = nrow(cm.pp.nwf))
+for (i in 1:nrow(cm.pp.nwf)) {
+  dist2[i] <- min(
+    sf::st_distance(
+      sf::st_geometry(cm.pp.nwf)[i],
+      sf::st_geometry(
+        cm.tiles[
+          cm.tiles$COVERCODE %in% c(2) |
+            cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ])))
+}
+cm.pp.nwf$dtf <- dist2
+cm.pp <- rbind(cm.pp.nwf, cm.pp.wf)
+cm.pp
 
 
 
