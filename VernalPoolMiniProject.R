@@ -372,6 +372,15 @@ for (i in 1:length(needed.tiles)) {
 }
 cm.tiles <- do.call(rbind, tiles.l)
 cm.tiles <- sf::st_transform(cm.tiles, 26986)
+cm.tiles <- cm.tiles[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(cm.tiles)
+    ))), ]
+cm.tiles.f <- cm.tiles[
+  cm.tiles$COVERCODE %in% c(2) |
+    cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]
 
 # Check whether a potential pool overlaps with a wetland. If it does, set its
 # distance to wetland equal to zero.
@@ -411,10 +420,7 @@ for (i in 1:nrow(cm.pp.nwf)) {
   dist2[i] <- min(
     sf::st_distance(
       sf::st_geometry(cm.pp.nwf)[i],
-      sf::st_geometry(
-        cm.tiles[
-          cm.tiles$COVERCODE %in% c(2) |
-            cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ])))
+      sf::st_geometry(cm.tiles.f)))
 }
 cm.pp.nwf$dtf <- dist2
 cm.pp <- rbind(cm.pp.nwf, cm.pp.wf)
@@ -465,15 +471,22 @@ terra::plot(
   col = cm.pp$col,
   pch = cm.pp$pch,
   cex = 1)
+dev.off()
 terra::plot(
-  sf::st_geometry(
-    cm.tiles[
-      cm.tiles$COVERCODE %in% c(2) |
-        cm.tiles$USEGENCODE %in% c(7, 33, 4, 20, 10, 8, 12, 11, 55), ]),
+  sf::st_geometry(cm.towns["TOWN"]),
+  col = "white")
+terra::plot(
+  sf::st_geometry(cm.tiles),
   add = TRUE,
   col = "grey")
+cm.tiles$USEGENCODE %in% c(4, 7, 8, 10, 11, 12, 20, 33, 55)
 
+sf::st_drop_geometry(cm.tiles)
 
+sf::st_drop_geometry(cm.tiles) %>%
+  group_by(COVERCODE, USEGENCODE) %>%
+  summarise(n = n()) %>%
+  arrange(COVERCODE, USEGENCODE)
 
 
 print(

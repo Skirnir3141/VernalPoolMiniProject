@@ -32,105 +32,162 @@ In this project, I aim to contribute to vernal pool conservation in Massachusett
 library(dplyr)
 library(terra)
 library(sf)
+library(units)
 library(scales)
 
 setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
 
-# Import town boundary polygons, potential pool points, and wetland polygons.
+# Import vectors MA towns, certified pools, potential pools, and wetlands.
 ma.towns <- sf::st_read("./townssurvey_shp/TOWNSSURVEY_POLY.shp")
+certified.pools <- sf::st_read("./GISDATA_CVP_PT/GISDATA_CVP_PTPoint.shp")
 potential.pools <- sf::st_read("./pvp/PVP_PT.shp")
 wetlands <- sf::st_read("./wetlandsdep/WETLANDSDEP_POLY.shp")
 
-# Plot potential pools and wetlands versus town boundaries for visual
-# inspection.
-terra::plot(sf::st_geometry(ma.towns), col = "white")
-terra::plot(
-  sf::st_geometry(wetlands),
-  add = TRUE,
-  col = "blue")
-terra::plot(
-  sf::st_geometry(sf::st_zm(potential.pools)),
-  add = TRUE,
-  col = "green",
-  pch = 17,
-  cex = .5)
-```
-
-Analysis was completed using `substring(R.Version()$version.string, 1, 15)`, with GIS analysis completed using the terra and sf packages (see Rmd for full code). Data on [municipal boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), and [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005) was downloaded from the MassGIS website on January 18, 2024. Potential pools and wetlands were plotted versus municipal boundaries in the NAD83 / Massachusetts Mainland projection and visually inspected for errors.
-
-```{r wetland, error=FALSE, warning=FALSE, message=FALSE}
-# Evaluate which county has the most pools indexed per unit of population
-# density (people per square mile).
-county.agg <- sf::st_drop_geometry(ma.towns) %>%
-  dplyr::group_by(FIPS_COUNT) %>%
-  dplyr::summarise(
-    pools = sum(potential.pools),
-    sm = sum(SQUARE_MIL),
-    pop = sum(POP2000)) %>%
-  dplyr::mutate(
-    tot.pools = pools,
-    perc.pools = pools / sum(ma.towns$potential.pools),
-    pop.den = pop / sm,
-    pool.den = pools / sm,
-    pools.per.pop.den = pools / (pop /  sm)) %>%
-  dplyr::arrange(desc(pools.per.pop.den))
-
-# Subset town, potential pool, and wetland objects to only include Worcester
-# county and plot to validate.
-worcester.towns <- ma.towns[ma.towns$FIPS_COUNT %in% c(27), ]
-worcester.wetlands <- wetlands[unlist(
+# Create vectors for just the towns of interest.
+cm.towns <- ma.towns[
+  ma.towns$TOWN %in% c(
+    "HUDSON"), ]
+cm.cp <- certified.pools[unlist(
   unique(
     sf::st_intersects(
-      x = sf::st_geometry(worcester.towns),
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(sf::st_zm(certified.pools))
+    ))), ]
+cm.pp <- potential.pools[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(sf::st_zm(potential.pools))
+    ))), ]
+cm.wetlands <- wetlands[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
       y = sf::st_geometry(wetlands)
     ))), ]
-worcester.pp <- potential.pools[unlist(
-  unique(
-    sf::st_intersects(
-      x = worcester.towns["TOWN"],
-      y = sf::st_geometry(potential.pools)
-    ))), ]
-terra::plot(sf::st_geometry(worcester.towns), col = "white")
+
+# Plot potential pools and wetlands versus town boundaries for visual
+# inspection.
+terra::plot(sf::st_geometry(cm.towns), col = "white")
 terra::plot(
-  sf::st_geometry(worcester.wetlands),
+  sf::st_geometry(cm.wetlands),
   add = TRUE,
   col = "blue")
 terra::plot(
-  sf::st_geometry(sf::st_zm(worcester.pp)),
+  sf::st_geometry(sf::st_zm(cm.pp)),
   add = TRUE,
   col = "green",
   pch = 17,
   cex = .5)
-
-# Evaluate whether potential pools fall within a wetland polygon
-worcester.pp$within.wetland <- lengths(
-  sf::st_intersects(worcester.pp, wetlands))
-
-# Split potential pools into those that fall within a wetland and those that do
-# not.  For potential pools within a wetland, set distance to wetland equal to
-# zero.
-worcester.pp.ww <- worcester.pp[worcester.pp$within.wetland == 1, ]
-worcester.pp.nww <- worcester.pp[worcester.pp$within.wetland == 0, ]
-worcester.pp.ww$dtw <- 0
-
-# For potential pools not within a wetland, calculate the distance to the
-# nearest wetland.  Join two potential pool objects to recreate overall object,
-# now with distance to the nearest pool.
-dist <- vector("list", length = nrow(worcester.pp.nww))
-for (i in 1:nrow(worcester.pp.nww)) {
-  dist[i] <- min(
-    sf::st_distance(
-      sf::st_geometry(worcester.pp.nww)[i],
-      sf::st_geometry(worcester.wetlands)))
-}
-worcester.pp.nww$dtw <- dist
-worcester.pp <- rbind(worcester.pp.nww, worcester.pp.ww)
-worcester.pp.f <- worcester.pp[worcester.pp$dtw <= 30, ]
 ```
 
-To make the analysis tractable, I chose to focus on Worcester county, which has the highest volume of potential pools indexed versus population density (by indexing on population density, I hope to proxy for the county where pools are most under threat to development).
+Analysis was completed using `substring(R.Version()$version.string, 1, 15)`, with GIS analysis completed using the terra and sf packages (see Rmd for full code). Data on [municipal boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005), and [land cover/use](https://www.mass.gov/info-details/massgis-data-2016-land-coverland-use) was downloaded from the MassGIS website on January 18, 2024. Potential pools and wetlands were plotted versus municipal boundaries in the NAD83 / Massachusetts Mainland projection and visually inspected for errors.
 
-To determine which potential pools were likely to benefit from certification, I evaluated each pool's proximity to a wetland. Pool points that were inside of a wetland or within 100 feet of the nearest wetland were deemed to be candidates for certification. `r nrow(worcester.pp.f)`potential pools or `r scales::percent(round(nrow(worcester.pp.f) / nrow(worcester.pp), digits = 2))` of pools in the county passed this threshold.
+```{r wetland, error=FALSE, warning=FALSE, message=FALSE}
+# Import land use tiles that intersect with towns. To do this, import tile
+# indexes, convert to MA projection, get IDs of tiles overlapping with towns,
+# create a list to hold tiles, import tiles by name, bind tiles together, and
+# convert to MA projection.
+tile.index <- sf::st_read(
+  "./landcover_use_index_poly/LANDCOVER_USE_INDEX_POLY.shp")
+tile.index <- sf::st_transform(tile.index, 26986)
+needed.tiles <- tile.index[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(tile.index)
+    ))), ]$TILENAME
+tiles.l <- vector("list", length = length(needed.tiles))
+for (i in 1:length(needed.tiles)) {
+  shp <- sf::st_read(
+    paste("./tiles/LCLU_",
+      needed.tiles[i],
+      "/LCLU_",
+      needed.tiles[i],
+      ".shp",
+      sep = ""))
+  tiles.l[[i]] <- shp[c("COVERCODE", "USEGENCODE")]
+}
+cm.tiles <- do.call(rbind, tiles.l)
+cm.tiles <- sf::st_transform(cm.tiles, 26986)
+
+# Filter tiles to include only polygons intersecting withtowns.
+cm.tiles <- cm.tiles[unlist(
+  unique(
+    sf::st_intersects(
+      x = sf::st_geometry(cm.towns),
+      y = sf::st_geometry(cm.tiles)
+    ))), ]
+
+# Create an object including only polygons describing terrain that could
+# indicate a threat to pools.  These are: COVERCODE 2 = Impervious, USEGENCODE 4
+# = Industrial, USEGENCODE 7 = Agriculture, USEGENCODE 8 = Recreation,
+# USEGENCODE 10 = Mixed use, primarily residential, USEGENCODE 11 = Residential
+# - single family, USEGENCODE 12 = Residential - multi-family, USEGENCODE 20 =
+# Mixed use, other, USEGENCODE 30 = Mixed use, primarily commercial, USEGENCODE
+# 55 = Right-of-way.
+cm.tiles.f <- cm.tiles[
+  cm.tiles$COVERCODE %in% c(2) |
+    cm.tiles$USEGENCODE %in% c(4, 7, 8, 10, 11, 12, 20, 30, 55), ]
+
+# Check whether a potential pool overlaps with a wetland. If it does, set its
+# distance to the nearest wetland equal to zero. If it doesn't, calculate its
+# distance to the nearest wetland in meters
+cm.pp$within.wetland <- lengths(
+  sf::st_intersects(cm.pp, cm.wetlands))
+cm.pp.ww <- cm.pp[cm.pp$within.wetland == 1, ]
+cm.pp.ww$dtw <- 0
+cm.pp.nww <- cm.pp[cm.pp$within.wetland == 0, ]
+dist <- vector("list", length = nrow(cm.pp.nww))
+for (i in 1:nrow(cm.pp.nww)) {
+  dist[i] <- units::set_units(
+    min(
+      sf::st_distance(
+        sf::st_geometry(cm.pp.nww)[i],
+        sf::st_geometry(cm.wetlands))),
+    'ft')
+}
+cm.pp.nww$dtw <- dist
+cm.pp <- rbind(cm.pp.nww, cm.pp.ww)
+
+# Check if pools overlap with an impervious feature. If they do, set their
+# distance to the nearest impervious feature equal to zero. If they don't,
+# calculate their distance to the nearest impervious feature.
+cm.pp$within.feature <- lengths(
+  sf::st_intersects(
+    sf::st_geometry(cm.pp),
+    sf::st_geometry(cm.tiles.f)))
+cm.pp.wf <- cm.pp[cm.pp$within.feature == 1, ]
+cm.pp.wf$dtf <- 0
+cm.pp.nwf <- cm.pp[cm.pp$within.feature == 0, ]
+dist2 <- vector("list", length = nrow(cm.pp.nwf))
+for (i in 1:nrow(cm.pp.nwf)) {
+  dist2[i] <- units::set_units(
+    min(
+      sf::st_distance(
+        sf::st_geometry(cm.pp.nwf)[i],
+        sf::st_geometry(cm.tiles.f))),
+    'ft')
+}
+cm.pp.nwf$dtf <- dist2
+cm.pp <- rbind(cm.pp.nwf, cm.pp.wf)
+
+# For each potential pool, calculate the distance to the nearest certified pool.
+dist3 <- vector("list", length = nrow(cm.pp))
+for (i in 1:nrow(cm.pp)) {
+  dist3[i] <- units::set_units(
+    min(
+      sf::st_distance(
+        sf::st_geometry(cm.pp)[i],
+        sf::st_zm(sf::st_geometry(cm.cp)))),
+    'ft')
+}
+cm.pp$dtcp <- dist3
+
+```
+To make the analysis tractable, I chose to focus on a set of towns that (just so happen) to include my hometown.
+
+To determine which potential pools were likely to benefit from certification, I evaluated each pool's proximity to a wetland. Pool points that were inside of a wetland or within 100 feet of the nearest wetland were deemed to be candidates for certification. `r nrow(cm.pp[cm.pp$dtw <= 100, ])`potential pools or `r scales::percent(round(nrow(worcester.pp.f) / nrow(worcester.pp), digits = 2))` of pools in the county passed this threshold.
 
 ```{r development, error=FALSE, warning=FALSE, message=FALSE}
 
