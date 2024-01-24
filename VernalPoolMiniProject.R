@@ -15,7 +15,7 @@ potential.pools <- sf::st_read("./pvp/PVP_PT.shp")
 # Let's plot...wow, looks like there are a lot of pools!
 terra::plot(sf::st_geometry(ma.towns), col = "white")
 terra::plot(
-  sf::st_geometry(sf::st_zm(verified.pools)),
+  sf::st_geometry(sf::st_zm(potential.pools)),
   add = TRUE,
   col = "blue",
   pch = 20,
@@ -476,17 +476,21 @@ terra::plot(
   sf::st_geometry(cm.towns["TOWN"]),
   col = "white")
 terra::plot(
-  sf::st_geometry(cm.tiles),
+  sf::st_geometry(cm.tiles.f[cm.tiles.f$USEGENCODE == 12, ]),
   add = TRUE,
   col = "grey")
 cm.tiles$USEGENCODE %in% c(4, 7, 8, 10, 11, 12, 20, 33, 55)
 
-sf::st_drop_geometry(cm.tiles)
+test <- sf::st_read(
+  paste("./tiles/LCLU_", needed.tiles[4], "/LCLU_", needed.tiles[4], ".shp", sep = ""))
 
-sf::st_drop_geometry(cm.tiles) %>%
-  group_by(COVERCODE, USEGENCODE) %>%
+colnames(test)
+
+
+sf::st_drop_geometry(test) %>%
+  group_by(USEGENCODE, USEGENNAME) %>%
   summarise(n = n()) %>%
-  arrange(COVERCODE, USEGENCODE)
+  arrange(USEGENCODE, USEGENNAME)
 
 
 print(

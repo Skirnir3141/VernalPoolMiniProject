@@ -6,6 +6,7 @@ library(terra)
 library(sf)
 library(units)
 library(scales)
+library(factoextra)
 
 setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
 
@@ -84,6 +85,47 @@ cm.tiles.f <- cm.tiles[
   cm.tiles$COVERCODE %in% c(2) |
     cm.tiles$USEGENCODE %in% c(4, 7, 8, 10, 11, 12, 20, 30, 55), ]
 
+
+# This code agglomerates sets of overlapping features. For potential pools
+# within an impervious feature, I want to understand the distance to the edge of
+# the overall impervious matrix, not just the specific feature the pool may be
+# inside (imagine the pool being inside a small building on top of a parking lot
+# ...I want the distance to the parking lot edge, not the building edge).
+#
+# Get indexes of every feature with each feature intersects.
+test <- st_intersects(cm.tiles.f, cm.tiles.f)
+
+# Create an object to hold the intersections for every feature
+res <- vector("list", length = length(test))
+
+# This creates groups of overlapping features. Imagine the case where many
+# features overlap, but no feature in the group overlaps with every other
+# feature in the group. In this case, intersecting produces various subsets of
+# the group. This combines those subsets.
+for (i in 1:length(test)) {
+  x <- test[[i]] # Get a set of intersecting features
+  for (j in 1:length(test[-i])) { # Now look at all other sets 
+    if(any(x %in% test[-i][[j]])) { # For all other sets, check if they overlap
+      x <- sort(unique(c(x, test[-i][[j]]))) # If so, add them to the set
+    }  
+  }
+  res[[i]] <- x # Save results
+}
+
+# Remove duplicates
+res <- res[!duplicated(res)]
+
+# Union each distinct group into one polygon geometry set, combine, and convert
+# back to an sfc.
+res2 <- vector("list", length = length(res))
+for (i in 1:length(res2)) {
+  res2[[i]] <- st_union(s[res[[i]], ])
+}
+
+s2 <- st_sf(data.frame(geometry = do.call(rbind, res2)))
+
+
+
 # Check whether a potential pool overlaps with a wetland. If it does, set its
 # distance to the nearest wetland equal to zero. If it doesn't, calculate its
 # distance to the nearest wetland in meters
@@ -144,25 +186,80 @@ cm.pp$dtcp <- dist3
 # TODO: figure out precision of wetland objects and adjust
 cm.pp.f <- cm.pp[cm.pp$dtw <= 150, ]
 
-# Create a distance matrix for filtered potential pools and compute a
-# hierarchical cluster analysis on it using an 
-dist.matrix <- sf::st_distance(cm.pp.f, cm.pp.f)
-cm.pp.f.clust <- hclust(as.dist(dist.matrix), method = "average")
-fviz_dend(cm.pp.f.clust)
-
-
+# Clustering evaluation functions
 wss <- function(d) {
   sum(scale(d, scale = FALSE)^2) 
 }
 wrap <- function(i, hc, x) {
-  cl <- cutree(hc, i) #cuts the cluster cluster based a number specified by i
-  spl <- split(x, cl) # splits the dataset into the number of groups according to cl 
-  wss <- sum(sapply(spl, wss)) # calculates sum of squares for each cluster/group 
-  wss # extracts the within group sum of squares 
+  cl <- cutree(hc, i)
+  spl <- split(x, cl)
+  wss <- sum(sapply(spl, wss)) 
+  wss
 }
+
+# One way of doing clustering
+library(cluster)
+
+test <-  data.frame(st_coordinates(st_cast(cm.pp.f$geometry,"MULTIPOINT")))[, c("X", "Y")]
+dist.matrix <- daisy(test, stand = TRUE, metric = "euclidean")
+cm.pp.f.clust <- hclust(dist.matrix, method = "average")
+fviz_dend(cm.pp.f.clust)
 res <- sapply(
   seq.int(1, nrow(dist.matrix)),
   wrap,
   hc = cm.pp.f.clust,
-  x = dist.matrix) # calculates the within group/cluster sum of squares starting at 1 to number of rows in the dataframe, and uses the prespecified functions wrap. 
-plot(seq_along(res), res, type = "b", pch = 19, xlab="Number of Clusters", ylab="Within-Cluster Sum of Squares", xlim=c(0, 30))
+  x = dist.matrix) 
+plot(
+  seq_along(res),
+  res,
+  type = "b",
+  pch = 19,
+  xlab="Number of Clusters",
+  ylab="Within-Cluster Sum of Squares",
+  xlim=c(0, 41))
+
+# Another way of doing clustering
+dist.matrix <- sf::st_distance(cm.pp.f, cm.pp.f)
+cm.pp.f.clust <- hclust(as.dist(dist.matrix), method = "single")
+fviz_dend(cm.pp.f.clust)
+# This is in meters, but 402 is about 1/4 of a mile
+cm.pp.f$clust <- cutree(cm.pp.f.clust, h = 402)
+
+cm.pp.f$priority <- dense_rank(unlist(cm.pp.f$dtf))
+
+
+cluster.prios <- st_drop_geometry(cm.pp.f) %>%
+  group_by(clust) %>%
+  summarise(
+    n = n(),
+    avg.dtf = round((mean(unlist(dtf))) / 10)) %>%
+  mutate(
+    rank.n = dense_rank(desc(n)),
+    rank.dtf = dense_rank(avg.dtf),
+    prio = dense_rank(dense_rank(desc(n)) + dense_rank(avg.dtf)) / 2)
+
+cm.pp.f <- left_join(cm.pp.f, cluster.prios[c("clust", "prio")], by = "clust")
+
+
+
+
+
+dev.off()
+
+terra::plot(sf::st_geometry(cm.towns), col = "white")
+terra::plot(
+  cm.pp.f["prio"],
+  ##add = TRUE,
+  legend = TRUE,
+  breaks = c(1, 2, 3, 4, 5),
+  pal = heat.colors(max(cm.pp.f$prio) - 1),
+  pch = 20,
+  cex = 1)
+terra::plot(
+  st_buffer(st_centroid(st_combine(cm.pp.f[cm.pp.f$clust == 1, ])), d = 804),
+  add = TRUE)
+for (i in 1:max(cm.pp.f$clust)) {
+terra::plot(
+  st_buffer(st_centroid(st_combine(cm.pp.f[cm.pp.f$clust == i, ])), d = 402),
+  add = TRUE)
+}

@@ -112,7 +112,7 @@ for (i in 1:length(needed.tiles)) {
 cm.tiles <- do.call(rbind, tiles.l)
 cm.tiles <- sf::st_transform(cm.tiles, 26986)
 
-# Filter tiles to include only polygons intersecting withtowns.
+# Filter tiles to include only polygons intersecting with towns.
 cm.tiles <- cm.tiles[unlist(
   unique(
     sf::st_intersects(
@@ -133,7 +133,7 @@ cm.tiles.f <- cm.tiles[
 
 # Check whether a potential pool overlaps with a wetland. If it does, set its
 # distance to the nearest wetland equal to zero. If it doesn't, calculate its
-# distance to the nearest wetland in meters
+# distance to the nearest wetland in feet.
 cm.pp$within.wetland <- lengths(
   sf::st_intersects(cm.pp, cm.wetlands))
 cm.pp.ww <- cm.pp[cm.pp$within.wetland == 1, ]
@@ -153,7 +153,7 @@ cm.pp <- rbind(cm.pp.nww, cm.pp.ww)
 
 # Check if pools overlap with an impervious feature. If they do, set their
 # distance to the nearest impervious feature equal to zero. If they don't,
-# calculate their distance to the nearest impervious feature.
+# calculate their distance to the nearest impervious feature in feet.
 cm.pp$within.feature <- lengths(
   sf::st_intersects(
     sf::st_geometry(cm.pp),
@@ -173,7 +173,8 @@ for (i in 1:nrow(cm.pp.nwf)) {
 cm.pp.nwf$dtf <- dist2
 cm.pp <- rbind(cm.pp.nwf, cm.pp.wf)
 
-# For each potential pool, calculate the distance to the nearest certified pool.
+# For each potential pool, calculate the distance to the nearest certified pool
+# in feet.
 dist3 <- vector("list", length = nrow(cm.pp))
 for (i in 1:nrow(cm.pp)) {
   dist3[i] <- units::set_units(
@@ -191,10 +192,34 @@ cm.pp$dtcp <- dist3
 # TODO: figure out precision of wetland objects and adjust
 cm.pp.f <- cm.pp[cm.pp$dtw <= 150, ]
 
+# Run cluster analysis with a single linkage fusion strategy based on a geodesic
+# distance of 1/4 of a mile. This distance is arbitrary, but the idea is that
+# if volunteers have to drive too far between pools, the grouping doesn't
+# represent a contiguous cluster that can be efficiently evaluated. Note that
+# distance is left in meters, 402m ~= .25 miles.
+dist.matrix <- sf::st_distance(cm.pp.f, cm.pp.f)
+cm.pp.f.clust <- hclust(as.dist(dist.matrix), method = "single")
+cm.pp.f$clust <- cutree(cm.pp.f.clust, h = 402)
+
+# Create a priority index based on number of pools in the cluster and the
+# average distance to an impervious feature in the cluster in tens of meters.
+# Join to filtered potential pool object.
+cluster.prios <- st_drop_geometry(cm.pp.f) %>%
+  group_by(clust) %>%
+  summarise(
+    n = n(),
+    avg.dtf = round((mean(unlist(dtf))) / 10)) %>%
+  mutate(
+    rank.n = dense_rank(desc(n)),
+    rank.dtf = dense_rank(avg.dtf),
+    prio = dense_rank(dense_rank(desc(n)) + dense_rank(avg.dtf)) / 2)
+cm.pp.f <- left_join(cm.pp.f, cluster.prios[c("clust", "prio")], by = "clust")
+
+
 ```
 To make the analysis tractable, I chose to focus on a set of towns that (just so happen) to include my hometown.
 
-To determine which potential pools were likely to benefit from certification, I evaluated each pool's proximity to a wetland. Pool points that were inside of a wetland or within 100 feet of the nearest wetland were deemed to be candidates for certification. `r nrow(cm.pp[cm.pp$dtw <= 100, ])`potential pools or `r scales::percent(round(nrow(worcester.pp.f) / nrow(worcester.pp), digits = 2))` of pools in the county passed this threshold.
+To determine which potential pools were likely to benefit from certification, I evaluated each pool's proximity to a wetland. Pool points that were inside of a wetland or within 150 feet of the nearest wetland were deemed to be candidates for certification. `r nrow(cm.pp[cm.pp$dtw <= 100, ])`potential pools or `r scales::percent(round(nrow(worcester.pp.f) / nrow(worcester.pp), digits = 2))` of pools in the county passed this threshold.
 
 ```{r development, error=FALSE, warning=FALSE, message=FALSE}
 
