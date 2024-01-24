@@ -137,3 +137,32 @@ for (i in 1:nrow(cm.pp)) {
     'ft')
 }
 cm.pp$dtcp <- dist3
+
+# Create an object that drops potential poos that are more than 150 feet from a
+# wetland. This accounts for the 100 foot rule and +/- 15 foot imprecision in
+# point generation.
+# TODO: figure out precision of wetland objects and adjust
+cm.pp.f <- cm.pp[cm.pp$dtw <= 150, ]
+
+# Create a distance matrix for filtered potential pools and compute a
+# hierarchical cluster analysis on it using an 
+dist.matrix <- sf::st_distance(cm.pp.f, cm.pp.f)
+cm.pp.f.clust <- hclust(as.dist(dist.matrix), method = "average")
+fviz_dend(cm.pp.f.clust)
+
+
+wss <- function(d) {
+  sum(scale(d, scale = FALSE)^2) 
+}
+wrap <- function(i, hc, x) {
+  cl <- cutree(hc, i) #cuts the cluster cluster based a number specified by i
+  spl <- split(x, cl) # splits the dataset into the number of groups according to cl 
+  wss <- sum(sapply(spl, wss)) # calculates sum of squares for each cluster/group 
+  wss # extracts the within group sum of squares 
+}
+res <- sapply(
+  seq.int(1, nrow(dist.matrix)),
+  wrap,
+  hc = cm.pp.f.clust,
+  x = dist.matrix) # calculates the within group/cluster sum of squares starting at 1 to number of rows in the dataframe, and uses the prespecified functions wrap. 
+plot(seq_along(res), res, type = "b", pch = 19, xlab="Number of Clusters", ylab="Within-Cluster Sum of Squares", xlim=c(0, 30))

@@ -34,6 +34,7 @@ library(terra)
 library(sf)
 library(units)
 library(scales)
+library(factoextra)
 
 setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
 
@@ -183,6 +184,12 @@ for (i in 1:nrow(cm.pp)) {
     'ft')
 }
 cm.pp$dtcp <- dist3
+
+# Create an object that drops potential poos that are more than 150 feet from a
+# wetland. This accounts for the 100 foot rule and +/- 15 foot imprecision in
+# point generation.
+# TODO: figure out precision of wetland objects and adjust
+cm.pp.f <- cm.pp[cm.pp$dtw <= 150, ]
 
 ```
 To make the analysis tractable, I chose to focus on a set of towns that (just so happen) to include my hometown.
