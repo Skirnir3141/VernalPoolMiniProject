@@ -225,7 +225,6 @@ fviz_dend(cm.pp.f.clust)
 # This is in meters, but 402 is about 1/4 of a mile
 cm.pp.f$clust <- cutree(cm.pp.f.clust, h = 402)
 
-cm.pp.f$priority <- dense_rank(unlist(cm.pp.f$dtf))
 
 
 cluster.prios <- st_drop_geometry(cm.pp.f) %>%
@@ -237,29 +236,70 @@ cluster.prios <- st_drop_geometry(cm.pp.f) %>%
     rank.n = dense_rank(desc(n)),
     rank.dtf = dense_rank(avg.dtf),
     prio = dense_rank(dense_rank(desc(n)) + dense_rank(avg.dtf)) / 2)
+cluster.prios
 
 cm.pp.f <- left_join(cm.pp.f, cluster.prios[c("clust", "prio")], by = "clust")
 
 
+test <- sf::st_read(
+  paste("./tiles/LCLU_",
+        needed.tiles[1],
+        "/LCLU_",
+        needed.tiles[1],
+        ".shp",
+        sep = ""))
 
+test.l <- vector("list", length = length(needed.tiles))
+for (i in 1:length(needed.tiles)) {
+  shp <- sf::st_read(
+    paste("./tiles/LCLU_",
+          needed.tiles[i],
+          "/LCLU_",
+          needed.tiles[i],
+          ".shp",
+          sep = ""))
+  test.l[[i]] <- shp[c("COVERCODE", "COVERNAME", "USEGENCODE", "USEGENNAME", "SHAPE_AREA")]
+}
+test.tiles <- do.call(rbind, test.l)
+
+
+
+print(
+  st_drop_geometry(test.tiles[test.tiles$USEGENCODE %in% c(4, 10, 11, 12, 30, 55), ]) %>%
+    group_by(USEGENNAME, USEGENCODE, COVERNAME, COVERCODE) %>%
+    summarise(n = n(), area = sum(SHAPE_AREA)) %>%
+    arrange(USEGENCODE, desc(area)),
+  n = 100)
 
 
 dev.off()
+terra::plot(sf::st_geometry(st_crop(cm.towns, c(xmin = 196687.2, ymin = 901867.9, xmax = 202250.2, ymax = 906827))), col = "white")
+terra::plot(
+  sf::st_geometry(cm.wetlands),
+  add = TRUE,
+  col = "lightblue",
+  alpha = .1)
+terra::plot(
+  sf::st_geometry(cm.tiles.f),
+  add = TRUE,
+  col = "grey",
+  alpha = .1)
+#COVERCODE 2 = Impervious, USEGENCODE 4
+# = Industrial, USEGENCODE 7 = Agriculture, USEGENCODE 8 = Recreation,
+# USEGENCODE 10 = Mixed use, primarily residential, USEGENCODE 11 = Residential
+# - single family, USEGENCODE 12 = Residential - multi-family, USEGENCODE 20 =
+# Mixed use, other, USEGENCODE 30 = Mixed use, primarily commercial, USEGENCODE
+# 55 = Right-of-way.
 
-terra::plot(sf::st_geometry(cm.towns), col = "white")
 terra::plot(
   cm.pp.f["prio"],
-  ##add = TRUE,
-  legend = TRUE,
-  breaks = c(1, 2, 3, 4, 5),
-  pal = heat.colors(max(cm.pp.f$prio) - 1),
+  add = TRUE,
+  breaks = c(.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5),
+  pal = rev(heat.colors(8)),
   pch = 20,
-  cex = 1)
+  cex = 2)
 terra::plot(
-  st_buffer(st_centroid(st_combine(cm.pp.f[cm.pp.f$clust == 1, ])), d = 804),
-  add = TRUE)
-for (i in 1:max(cm.pp.f$clust)) {
-terra::plot(
-  st_buffer(st_centroid(st_combine(cm.pp.f[cm.pp.f$clust == i, ])), d = 402),
-  add = TRUE)
-}
+  sf::st_geometry(cm.pp[cm.pp$dtw > 150, ]),
+  add = TRUE,
+  pch = 13,
+  cex = 2)
