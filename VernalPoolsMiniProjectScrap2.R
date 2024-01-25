@@ -275,6 +275,24 @@ print(
 dev.off()
 terra::plot(sf::st_geometry(st_crop(cm.towns, c(xmin = 196687.2, ymin = 901867.9, xmax = 202250.2, ymax = 906827))), col = "white")
 terra::plot(
+  cm.pp.f["prio"],
+  add = TRUE,
+  breaks = seq(
+    round(min(cm.pp.f$prio)),
+    round(max(cm.pp.f$prio)),
+    by = .5),
+  pal = rev(
+    heat.colors(
+      length(
+        seq(
+          round(min(cm.pp.f$prio)),
+          round(max(cm.pp.f$prio)),
+          by = .5)) - 1)),
+  pch = 20,
+  cex = 2)
+
+
+terra::plot(
   sf::st_geometry(cm.wetlands),
   add = TRUE,
   col = "lightblue",
@@ -297,9 +315,36 @@ terra::plot(
   breaks = c(.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5),
   pal = rev(heat.colors(8)),
   pch = 20,
-  cex = 2)
+  cex = 2,
+  border = "black")
 terra::plot(
   sf::st_geometry(cm.pp[cm.pp$dtw > 150, ]),
   add = TRUE,
   pch = 13,
   cex = 2)
+
+
+cluster.prios <- cm.pp.f %>%
+  dplyr::group_by(clust) %>%
+  dplyr::summarise(
+    n = n(),
+    town = paste0(unique(TOWN)[1]),
+    # Aggregating to tens of meters smooths the ranking a bit. No reason to
+    # privilege one pool over anotehr based on a trivial distance difference.
+    avg.dtf = round((mean(unlist(dtf))) / 10)) %>%
+  dplyr::mutate(
+    rank.n = dplyr::dense_rank(desc(n)),
+    rank.dtf = dplyr::dense_rank(avg.dtf),
+    prio = dplyr::dense_rank(
+      dplyr::dense_rank(desc(n)) + dplyr::dense_rank(avg.dtf)) / 2)
+
+cluster.prios$centroid <- sf::st_centroid(cluster.prios$geometry)
+cluster.prios <- sf::st_drop_geometry(cluster.prios)
+
+print(
+  dplyr::arrange(
+    cluster.prios[c("town", "prio", "rank.n", "rank.dtf", "centroid")],
+    prio),
+  n = 5)
+
+

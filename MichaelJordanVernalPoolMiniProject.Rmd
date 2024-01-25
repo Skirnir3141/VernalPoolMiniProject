@@ -4,7 +4,7 @@ author: "Michael Jordan"
 date: "January 25, 2024"
 header-includes: 
  \usepackage{geometry}
- \geometry{top=1in,left=1in,bottom=1in,right=1in}
+ \geometry{top=.6in,left=.6in,bottom=.6in,right=.6in}
 output: pdf_document
 urlcolor: blue
 ---
@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Abstract
 
-Massachusetts state law protects vernal pools from development. However, this protection is contingent on a pool being certified to function as critical wildlife habitat and unfortunately the state government does not have an active program to review new pools for potential certification. Instead, the state relies on private citizens requesting pool certification at their discretion. Because submitting a certification request is time consuming work that requires visiting a potential pool to collect biological data, many legitimate pools go uncertified and unprotected. To help citizen groups more effectively protect vernal pools, this paper uses a MassGIS data set of potential vernal pools to identify geographic "hot spots" of pools that are more likely to benefit from a certification request.
+Vernal pools are protected under Massachusetts state law because of their function as critical wildlife habitat. However, in order to receive this protection a pool must be certified by the Massachusetts government. Unfortunately, the Massachusetts government does not actively attempt to survey and certify new pools and instead relies on private citizens requesting pool certification at their discretion. Because there is no active certification process, it is likely that many legitimate vernal pools remain uncertified and unprotected. To help citizen groups more effectively protect vernal pools, this paper uses a MassGIS data set of potential vernal pools to identify geographic "hot spots" of pools should be prioritized for attempted certification.
 
 ## Introduction
 ```{r import, include=FALSE, error=FALSE, warning=FALSE, message=FALSE}
@@ -25,6 +25,7 @@ library(sf)
 library(units)
 library(scales)
 library(factoextra)
+library(kable)
 
 setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
 
@@ -37,7 +38,7 @@ wetlands <- sf::st_read("./wetlandsdep/WETLANDSDEP_POLY.shp")
 # Create vectors for just the towns of interest in Central MA.
 cm.towns <- ma.towns[
   ma.towns$TOWN %in% c(
-    "HUDSON"), ]
+    "BERLIN", "HUDSON"), ]
 cm.cp <- certified.pools[unlist(
   unique(
     sf::st_intersects(
@@ -94,17 +95,17 @@ cm.tiles <- cm.tiles[unlist(
 
 ```
 
-Vernal pools are ephemeral bodies of water, often geographically separate from other wetlands, that typically fill in the spring and evaporate by summer (Burne & Griffin, 2005).  Because vernal pools are not filled continuously, they do not support breeding fish populations (Burne & Griffin, 2005). This makes vernal pools critical habitat for amphibian and invertebrate species, particularly those that cannot successfully breed in the presence of fish predation (Burne & Griffin, 2005).
+Vernal pools are ephemeral bodies of water, often geographically separate from other wetlands, that typically fill in the spring and evaporate by summer (Burne & Griffin, 2005).  Because vernal pools are not filled continuously, they do not support breeding fish populations (Burne & Griffin, 2005). This makes vernal pools critical habitat for amphibian and invertebrate species, particularly those that cannot successfully reproduce in the presence of fish predation (Burne & Griffin, 2005).
 
 In the state of Massachusetts in the United States, a variety of species are such obligate habitators of vernal pools, including the wood frog (*Lithobates sylvaticus*), several species of mole salamanders (*Ambystoma* spp.), and various fairy shrimp species (*Eubranchipus* spp.) (MA DFG, 2009). The intricate fairy shrimp (*Eubranchipus intricatus*) is of particular note because it is locally rare and is listed as a Species of Special Concern under the Massachusetts Endangered Species Act (NHESP, 2015). Without vernal pools, these species would be under high risk of local extinction and others that use the pools on a facultative basis would face additional pressure.
 
-Because of their signifcance as critical habitat, vernal pools are protected under a variety of Massachusetts state and local laws, the most significant of which is the Wetlands Protection Act (WPA). Under the WPA, development that may impact the function of vernal pools as wildlife habitat is not permitted within 100 feet of the boundary of a vernal pool (MA DFW, 2009). But, to qualify for WPA protection, a pools must meet two criteria. First, it must exist within 100 feet of a wetland “Resource Area” that falls under WPA jurisdiction (MA DFW, 2009). Second, it must be certified by the Natural Heritage and Endangered Species Program (NHESP) as functioning biologically as a vernal pool (MA DFW, 2009).
+Because of their significance as critical habitat, vernal pools are protected under a variety of Massachusetts state and local laws, the most significant of which is the Wetlands Protection Act (WPA). Under the WPA, development that may impact the function of vernal pools as wildlife habitat is not permitted within 100 feet of the boundary of a vernal pool (MA DFW, 2009). But, to qualify for WPA protection, a pool must meet two criteria. First, it must exist within 100 feet of a wetland “Resource Area” that falls under WPA jurisdiction (MA DFW, 2009). Second, it must be certified by the Natural Heritage and Endangered Species Program (NHESP) as functioning biologically as a vernal pool (MA DFW, 2009).
 
-Fortunately, WPA jurisdiction is quite broad, encompassing essentially all wetlands in Massachusetts (310 CMR 10.02 § 1, 1987). But, the requirement that vernal pools be certified does significantly constrain their protection. The reason for this is that certification is a passive process conducted on a volunteer basis by private citizens, not an active process by a government body (MA DFW, 2009). If a citizen would like to request certification of a potential vernal pool, they must visit the pool, collect biological demonstrating the presence of certain species, and submit them to the NHESP for review.  Only once approved as a certified vernal pool and only once it has been established that the pool falls under WPA jurisdiction is it protected from development.
+Fortunately, WPA jurisdiction is quite broad, encompassing essentially all wetlands in Massachusetts (310 CMR 10.02 § 1, 1987). But, the requirement that vernal pools be certified does significantly constrain their protection. The reason for this is that certification is a passive process conducted on a volunteer basis by private citizens, not an active process by a government body (MA DFW, 2009). If a citizen would like to request certification of a potential vernal pool, they must visit the pool, collect biological data demonstrating the presence of certain species, and submit them to the NHESP for review.  Only once approved as a certified vernal pool and only once it has been established that the pool falls under WPA jurisdiction is it protected from development.
 
-To aid the protection of vernal pools, the NHESP developed a data set of potential vernal pool GIS coordinates based on aerial photography that took place between 1993 and 2000 (Burne, 2001). This data set is a useful starting point for citizens groups who'd like to review potential vernal pools and submit them for certification. However, the volume of records in this data set (`r prettyNum(nrow(potential.pools), big.mark = ",", scientific = FALSE)` as of January 18, 2024) presents a prioritization problem. Citizen groups may have limited time to visit pools, gather data, and request certification. It's unclear on which pools they should focus their limited resources.
+To aid the protection of vernal pools, the NHESP used aerial photography to develop a data set of GIS coordinates of potential vernal pools that are not yet certified (Burne, 2001). This data set is a useful starting point for citizens groups that would like to review potential vernal pools and submit them for certification. However, the volume of records in this data set (`r prettyNum(nrow(potential.pools), big.mark = ",", scientific = FALSE)` as of January 18, 2024) presents a prioritization problem. Citizen groups may have limited time to visit pools, gather data, and request certification. It's unclear on which pools they should focus their limited resources.
 
-In this analysis, I aim to contribute to vernal pool conservation in Massachusetts by flagging pools in the NHESP potential pool data set that are more likely to benefit from protection, face higher threats from development, and can be reviewed more efficiently based on their geographic clustering.
+In this analysis, I aim to contribute to vernal pool conservation in Massachusetts by flagging pools in the NHESP potential pool data set that are more likely to benefit from protection, face higher threat from development, and can be reviewed more efficiently based on their geographic clustering.
 
 ## Methods
 
@@ -147,16 +148,14 @@ cm.pp.nww$dtw <- dist
 cm.pp <- rbind(cm.pp.nww, cm.pp.ww)
 ```
 
-Because a pool must exist within 100 feet of a wetland to be eligible for WPA protection, I evaluated each pool's proximity to a wetland. Pool points that were within 150 feet of the nearest wetland were deemed to be candidates for certification and the rest were discarded. This 150 foot threshold was semi-arbitrary, based on potential pool geo point precision of +/- 15 feet (Burne, 2001) with an additional 20 foot buffer to be conservative.
+Because a pool must exist within 100 feet of a wetland to be eligible for WPA protection, I evaluated each pool's proximity to a wetland. Pool points that were within 130 feet of the nearest wetland were deemed to be candidates for certification and the rest were discarded. This 130 foot cut off was based on the 100 foot WPA threshold plus a potential pool geo point precision of +/- 15 feet (Burne, 2001). Note that because WPA jurisdiction is based on pool boundary and potential pool geo points represent the pool center, this is a stringent threshold and could cut off some pools within WPA jurisdiction.
 
 ```{r impervious_features, include=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 # Create an object including only polygons describing terrain that could
 # indicate a threat to pools.  These are: COVERCODE 2 = Impervious, USEGENCODE 4
-# = Industrial, USEGENCODE 7 = Agriculture, USEGENCODE 8 = Recreation,
-# USEGENCODE 10 = Mixed use, primarily residential, USEGENCODE 11 = Residential
-# - single family, USEGENCODE 12 = Residential - multi-family, USEGENCODE 20 =
-# Mixed use, other, USEGENCODE 30 = Mixed use, primarily commercial, USEGENCODE
-# 55 = Right-of-way.
+# = Industrial, USEGENCODE 10 = Mixed use, primarily residential, USEGENCODE 11
+# = Residential - single family, USEGENCODE 12 = Residential - multi-family,
+# USEGENCODE 30 = Mixed use, primarily commercial, USEGENCODE 55 = Right-of-way.
 cm.tiles.f <- cm.tiles[
   cm.tiles$COVERCODE %in% c(2) |
     cm.tiles$USEGENCODE %in% c(4, 10, 11, 12, 30, 55), ]
@@ -183,14 +182,13 @@ for (i in 1:nrow(cm.pp.nwf)) {
 cm.pp.nwf$dtf <- dist2
 cm.pp <- rbind(cm.pp.nwf, cm.pp.wf)
 
-# Create an object that drops potential pools that are more than 150 feet from a
+# Create an object that drops potential pools that are more than 130 feet from a
 # wetland. This accounts for the 100 foot rule and +/- 15 foot imprecision in
 # point generation.
-# TODO: figure out precision of wetland objects and adjust
-cm.pp.f <- cm.pp[cm.pp$dtw <= 150, ]
+cm.pp.f <- cm.pp[cm.pp$dtw <= 130, ]
 ```
 
-To proxy for the threat each pool faced from human development, I measured the distance from each potential pool point to the nearest land cover/use vector that could be expected to threaten the biological functioning of a pool (e.g., a road or industrial building). I defined this set of vectors based on NOAA C-CAP land cover and land use codes (see [Rmd](https://github.com/Skirnir3141/VernalPoolMiniProject/blob/master/MichaelJordanVernalPoolMiniProject.Rmd) for code mapping). I refer to it as the set of "impervious features."
+To proxy for the threat each pool faced from human development, I measured the distance from each potential pool point to the nearest land cover/use vector that could be expected to threaten the biological functioning of a pool (e.g., a road or industrial building). I defined this set of vectors based on NOAA C-CAP land cover and land use codes (see [Rmd](https://github.com/Skirnir3141/VernalPoolMiniProject/blob/master/MichaelJordanVernalPoolMiniProject.Rmd) for code mapping). I refer to this below as the set of "impervious features."
 
 ```{r cluster, include=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 # Run cluster analysis with a single linkage fusion strategy based on a geodesic
@@ -203,31 +201,38 @@ cm.pp.f.clust <- hclust(as.dist(dist.matrix), method = "single")
 cm.pp.f$clust <- cutree(cm.pp.f.clust, h = 402)
 ```
 
-To flag groups of pools that were geographically close together and so could be visited and reviewed for certification quickly, I grouped pools into clusters by running a hierarchical cluster analysis on the geodesic "great circle" distances between pools using a single linkage fusion strategy. I segregated clusters based on a semi-arbitrary threshold of 1/4 of a mile. My goal in doing so was to define pool clusters that would feel contiguous to volunteers. This approach ensures that no two pools in a cluster will be more than 1/4 of a mile apart, which seemed reasonable.
+To flag groups of pools that were geographically close together and so could be visited and reviewed for certification quickly, I grouped pools into clusters by running a hierarchical cluster analysis on the geodesic "great circle" distances between pools using a single linkage fusion strategy. I segregated clusters based on a semi-arbitrary threshold of 1/4 of a mile. My goal in doing so was to define pool clusters that would feel contiguous to volunteers. This approach ensures that no two pools in a cluster will be more than 1/4 of a mile apart, which seems reasonable.
 
 ```{r priority, include=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 # Create a priority index based on number of pools in the cluster and the
 # average distance to an impervious feature in the cluster in tens of meters.
 # Join to filtered potential pool object.
-cluster.prios <- st_drop_geometry(cm.pp.f) %>%
-  group_by(clust) %>%
-  summarise(
+cluster.prios <- cm.pp.f %>%
+  dplyr::group_by(clust) %>%
+  dplyr::summarise(
     n = n(),
+    town = paste0(unique(TOWN)[1]),
+# Aggregating to tens of meters smooths the ranking a bit. No reason to
+# privilege one pool over anotehr based on a trivial distance difference.
     avg.dtf = round((mean(unlist(dtf))) / 10)) %>%
-  mutate(
-    rank.n = dense_rank(desc(n)),
-    rank.dtf = dense_rank(avg.dtf),
-    prio = dense_rank(dense_rank(desc(n)) + dense_rank(avg.dtf)) / 2)
-cm.pp.f <- left_join(cm.pp.f, cluster.prios[c("clust", "prio")], by = "clust")
+  dplyr::mutate(
+    rank.n = dplyr::dense_rank(desc(n)),
+    rank.dtf = dplyr::dense_rank(avg.dtf),
+    prio = dplyr::dense_rank(
+      dplyr::dense_rank(desc(n)) + dplyr::dense_rank(avg.dtf)) / 2)
+cluster.prios$centroid <- sf::st_centroid(cluster.prios$geometry)
+cluster.prios <- sf::st_drop_geometry(cluster.prios)
+cm.pp.f <- dplyr::left_join(
+  cm.pp.f, cluster.prios[c("clust", "prio")], by = "clust")
 ```
 
 Finally, I computed a prioritization index for each potential pool cluster. This index was an equal weighting between a dense rank of the number of pools in the cluster and a dense rank of the average distance to the nearest impervious feature among pools in the cluster. This index structure is (again) semi-arbitrary, but the idea is that the more pools in a group and the closer the group is to human development the more important it is to visit and review.
 
 ## Discussion
 
-This is a fairly quick-and-dirty back-of-the-envelope analytical approach that may suffer from several sources of bias.
+This is a quick-and-dirty back-of-the-envelope analytical approach that may suffer from several sources of bias.
 
-Because it combines data from different time periods, some several decades in the past (1993-2000 for potential pools, 2005 for wetlands, 2016 for land cover/use), results may not reflect current conditions. Wetlands and vernal pools may have shifted boundaries, disappeared altogether, or been developed over, confounding my attempts to identify high priority vernal pools.
+Because it combines data from different time periods, some several decades in the past (1993-2000 for potential pools, 2005 for wetlands, 2016 for land cover/use), results may not reflect current conditions. Wetlands and vernal pools may have shifted boundaries, disappeared altogether, or been developed over since the data were derived, confounding my attempts to identify high priority vernal pool clusters.
 
 There is also likely to be bias in the potential pool data itself. Potential pools were recorded based on visual inspection of aerial photography, which is necessarily open to human error. The NHESP was able to validate that the false positve rate was low, less than 3% (Burne, 2001). But, it was unable to validate the false negative rate. It's thought to be quite high because small pools below ~50-60 feet in diameter could not be reliably identified due to the granularity of the aerial photographs (Burne, 2001).
 
@@ -237,9 +242,9 @@ Finally, the prioritization index does not account for whether a potential pool 
 
 `r nrow(cm.pp[cm.pp$dtw > 150, ])` potential pools were excluded because they were not in close enough proximity to a wetland to fall under WPA jurisdiction. This allowed me to cut down the data set by `r scales::percent(round(nrow(cm.pp[cm.pp$dtw > 150, ]) / nrow(cm.pp), digits = 2))` and prevent wasted effort on pools that are unlikely to fall under WPA jurisdiction.
 
-Within the remaining `r nrow(cm.pp.f)` pools, several hot spots of geographically clustered pools that were atypically close to human development were identified. An example is plotted below and cluster geo coordinates can be provided to interested citizen groups.
+Within the remaining `r nrow(cm.pp.f)` pools, several hot spots of geographically clustered pools that were atypically close to human development were identified. An example is plotted below.
 
-```{r graphs, echo=FALSE, fig.align='center', error=FALSE, warning=FALSE, message=FALSE}
+```{r result_map, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
 # Plot potential pools
 par(mar = c(1, 1, 1, 1))
 terra::plot(
@@ -259,15 +264,37 @@ terra::plot(
 terra::plot(
   cm.pp.f["prio"],
   add = TRUE,
-  breaks = c(.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5),
-  pal = rev(heat.colors(8)),
+  breaks = seq(
+    min(cm.pp.f$prio),
+    max(cm.pp.f$prio),
+    by = (max(cm.pp.f$prio) - min(cm.pp.f$prio)) / 10),
+  pal = rev(
+    heat.colors(
+      length(
+        seq(
+          round(min(cm.pp.f$prio)),
+          round(max(cm.pp.f$prio)),
+          by = (max(cm.pp.f$prio) - min(cm.pp.f$prio)) / 10)) - 1)),
   pch = 20,
-  cex = 3)
+  cex = 2)
 terra::plot(
   sf::st_geometry(cm.pp[cm.pp$dtw > 150, ]),
   add = TRUE,
   pch = 13,
   cex = 3)
+```
+Geo coordinates of high value clusters are available for interested citizen groups.
+
+```{r result_table, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
+
+knitr::kable(
+  print(
+    dplyr::arrange(
+      cluster.prios[c("town", "prio", "rank.n", "rank.dtf", "centroid")],
+      prio),
+    n = 5),
+  align = "c",
+  caption = "Cluster Geo Coords & Ranking")
 ```
 
 ## Conclusion
@@ -275,8 +302,6 @@ terra::plot(
 I was able to filter potential vernal pools, map them, and apply a reasonable index to prioritize which pools to review.
 
 Aside from potential sources of bias discussed above, the big limitation to this analysis is that its output is not statistically validated. Ideally I'd like to have data on pools that were previously on the potential pool list, were reviewed, and the outcome of that review. Having such data would let me construct and statistically evaluate pool certification models. Perhaps in the future such data could be compiled in partnership with citizen groups.
-
-Regardless, I think this is a reasonable first crack at helping to sort through an otherwise overwhelming amount of potential vernal pools to review.
 
 ## Reference List
 
