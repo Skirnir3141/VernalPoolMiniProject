@@ -273,7 +273,7 @@ print(
 
 
 dev.off()
-terra::plot(sf::st_geometry(st_crop(cm.towns, c(xmin = 196687.2, ymin = 901867.9, xmax = 202250.2, ymax = 906827))), col = "white")
+terra::plot(sf::st_geometry(st_crop(cm.towns, c(xmin = 195000, ymin = 904000, xmax = 202250, ymax = 906827))), col = "white")
 terra::plot(
   cm.pp.f["prio"],
   add = TRUE,

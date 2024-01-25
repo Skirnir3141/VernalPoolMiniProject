@@ -25,7 +25,7 @@ library(sf)
 library(units)
 library(scales)
 library(factoextra)
-library(kable)
+library(knitr)
 
 setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
 
@@ -244,7 +244,7 @@ Finally, the prioritization index does not account for whether a potential pool 
 
 Within the remaining `r nrow(cm.pp.f)` pools, several hot spots of geographically clustered pools that were atypically close to human development were identified. An example is plotted below.
 
-```{r result_map, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
+```{r results_map, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
 # Plot potential pools
 par(mar = c(1, 1, 1, 1))
 terra::plot(
@@ -285,14 +285,14 @@ terra::plot(
 ```
 Geo coordinates of high value clusters are available for interested citizen groups.
 
-```{r result_table, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
+```{r results_table, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
+
+table.output <- dplyr::arrange(
+  cluster.prios[c("town", "prio", "n", "avg.dtf", "centroid")],
+  prio)[1:5, ]
 
 knitr::kable(
-  print(
-    dplyr::arrange(
-      cluster.prios[c("town", "prio", "rank.n", "rank.dtf", "centroid")],
-      prio),
-    n = 5),
+  table.output,
   align = "c",
   caption = "Cluster Geo Coords & Ranking")
 ```
