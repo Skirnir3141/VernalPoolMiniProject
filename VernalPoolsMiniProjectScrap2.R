@@ -83,7 +83,7 @@ cm.tiles <- cm.tiles[unlist(
 # 55 = Right-of-way.
 cm.tiles.f <- cm.tiles[
   cm.tiles$COVERCODE %in% c(2) |
-    cm.tiles$USEGENCODE %in% c(4, 7, 8, 10, 11, 12, 20, 30, 55), ]
+    cm.tiles$USEGENCODE %in% c(4, 10, 11, 12, 30, 55), ]
 
 
 # This code agglomerates sets of overlapping features. For potential pools
@@ -262,89 +262,80 @@ for (i in 1:length(needed.tiles)) {
 }
 test.tiles <- do.call(rbind, test.l)
 
-
-
-print(
-  st_drop_geometry(test.tiles[test.tiles$USEGENCODE %in% c(4, 10, 11, 12, 30, 55), ]) %>%
-    group_by(USEGENNAME, USEGENCODE, COVERNAME, COVERCODE) %>%
-    summarise(n = n(), area = sum(SHAPE_AREA)) %>%
-    arrange(USEGENCODE, desc(area)),
-  n = 100)
-
-
 dev.off()
-terra::plot(sf::st_geometry(st_crop(cm.towns, c(xmin = 195000, ymin = 904000, xmax = 202250, ymax = 906827))), col = "white")
 terra::plot(
-  cm.pp.f["prio"],
-  add = TRUE,
-  breaks = seq(
-    round(min(cm.pp.f$prio)),
-    round(max(cm.pp.f$prio)),
-    by = .5),
-  pal = rev(
-    heat.colors(
-      length(
-        seq(
-          round(min(cm.pp.f$prio)),
-          round(max(cm.pp.f$prio)),
-          by = .5)) - 1)),
-  pch = 20,
-  cex = 2)
-
-
+  sf::st_geometry(cm.towns),
+  col = "white",
+  main = "Potential Pool Heatmap")
 terra::plot(
   sf::st_geometry(cm.wetlands),
   add = TRUE,
-  col = "lightblue",
-  alpha = .1)
-terra::plot(
-  sf::st_geometry(cm.tiles.f),
-  add = TRUE,
-  col = "grey",
-  alpha = .1)
-#COVERCODE 2 = Impervious, USEGENCODE 4
-# = Industrial, USEGENCODE 7 = Agriculture, USEGENCODE 8 = Recreation,
-# USEGENCODE 10 = Mixed use, primarily residential, USEGENCODE 11 = Residential
-# - single family, USEGENCODE 12 = Residential - multi-family, USEGENCODE 20 =
-# Mixed use, other, USEGENCODE 30 = Mixed use, primarily commercial, USEGENCODE
-# 55 = Right-of-way.
+  col = "lightblue")
 
+dev.off()
 terra::plot(
   cm.pp.f["prio"],
-  add = TRUE,
-  breaks = c(.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5),
-  pal = rev(heat.colors(8)),
+  main = "test",
+  legend = FALSE,
+  breaks = 1:5,
+  pal = rev(heat.colors(4)),
   pch = 20,
-  cex = 2,
-  border = "black")
-terra::plot(
-  sf::st_geometry(cm.pp[cm.pp$dtw > 150, ]),
-  add = TRUE,
-  pch = 13,
   cex = 2)
+legend(
+  "bottom",
+  legend = c(1, 2, 3, 4, 5),
+  fill = rev(heat.colors(5)),
+  bty = "n")
 
+dev.off()
+# Set graphical parameters
+par(mfrow = c(1, 2), mar = c(1, 1, 1, 1))
 
-cluster.prios <- cm.pp.f %>%
-  dplyr::group_by(clust) %>%
-  dplyr::summarise(
-    n = n(),
-    town = paste0(unique(TOWN)[1]),
-    # Aggregating to tens of meters smooths the ranking a bit. No reason to
-    # privilege one pool over anotehr based on a trivial distance difference.
-    avg.dtf = round((mean(unlist(dtf))) / 10)) %>%
-  dplyr::mutate(
-    rank.n = dplyr::dense_rank(desc(n)),
-    rank.dtf = dplyr::dense_rank(avg.dtf),
-    prio = dplyr::dense_rank(
-      dplyr::dense_rank(desc(n)) + dplyr::dense_rank(avg.dtf)) / 2)
+cm.towns <- cbind(cm.towns, st_coordinates(st_centroid(cm.towns)))
+# Add town centroid for label plotting. Plot potential pools versus wetlands in
+# all towns.
 
-cluster.prios$centroid <- sf::st_centroid(cluster.prios$geometry)
-cluster.prios <- sf::st_drop_geometry(cluster.prios)
+test1 <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = cm.towns, fill = "white") +
+  ggplot2::geom_sf(data = cm.wetlands, fill = "blue") +
+  ggplot2::geom_sf(data = cm.pp.f, aes(color = prio), pch = 20, cex = 5) +
+  ggplot2::scale_color_gradient(
+    low="darkred", high="yellow", trans = "reverse", name = "Pool\nPrio") + 
+  ggplot2::geom_label(
+    data = cm.towns, aes(X, Y, label = TOWN), size = 4, fontface = "bold") +
+  ggplot2::theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    rect = element_blank(),
+    legend.margin = margin( 0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0))
 
-print(
-  dplyr::arrange(
-    cluster.prios[c("town", "prio", "rank.n", "rank.dtf", "centroid")],
-    prio),
-  n = 5)
-
-
+# Plot potential pools versus wetlands, impervious features, and pools removed
+# from analysis for a zoomed in area of Hudson.
+ext <- c(xmin = 196687.2, ymin = 903000, xmax = 202250.2, ymax = 906000)
+cm.pp.del <- cm.pp[cm.pp$dtw > 150, ]
+cm.pp.del$del <- ""
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = sf::st_crop(cm.towns, ext), fill = "white") +
+  ggplot2::geom_sf(data = sf::st_crop(cm.wetlands, ext), fill = "blue") +
+  ggplot2::geom_sf(data = sf::st_crop(cm.tiles.f, ext), fill = "grey") +
+  ggplot2::geom_sf(
+    data = sf::st_crop(cm.pp.f, ext), aes(color = prio), pch = 20, cex = 5) +
+  ggplot2::scale_color_gradient(
+    low="darkred", high="yellow", trans = "reverse", guide = "none") + 
+  ggplot2::geom_sf(
+    data = sf::st_crop(cm.pp.del, ext), aes(fill = del), pch = 13, cex = 5) +
+  ggplot2::guides(fill = ggplot2::guide_legend(title = "Excluded\nPool")) +
+  ggplot2::theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    rect = element_blank(),
+    legend.margin = margin( 0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0))
+cowplot::plot_grid(test1, test2, labels = NULL)

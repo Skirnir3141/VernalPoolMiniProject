@@ -4,7 +4,7 @@ author: "Michael Jordan"
 date: "January 25, 2024"
 header-includes: 
  \usepackage{geometry}
- \geometry{top=.6in,left=.6in,bottom=.6in,right=.6in}
+ \geometry{top=.7in,left=.7in,bottom=.7in,right=.7in}
 output: pdf_document
 urlcolor: blue
 ---
@@ -26,6 +26,7 @@ library(units)
 library(scales)
 library(factoextra)
 library(knitr)
+library(cowplot)
 
 setwd("C:/Users/Michael Jordan/Desktop/VernalPoolMiniProject")
 
@@ -38,7 +39,8 @@ wetlands <- sf::st_read("./wetlandsdep/WETLANDSDEP_POLY.shp")
 # Create vectors for just the towns of interest in Central MA.
 cm.towns <- ma.towns[
   ma.towns$TOWN %in% c(
-    "BERLIN", "BOLTON", "HUDSON", "MARLBOROUGH", "STOW"), ]
+    "BERLIN", "BOLTON", "HUDSON", "STOW"), ]
+    #"HUDSON"), ]
 cm.cp <- certified.pools[unlist(
   unique(
     sf::st_intersects(
@@ -124,7 +126,7 @@ terra::plot(
   pch = 17,
   cex = .5)
 ```
-For this analysis, I used `r substring(R.Version()$version.string, 1, 15)`, relying primarily on the terra and sf packages (see [Rmd](https://github.com/Skirnir3141/VernalPoolMiniProject/blob/master/MichaelJordanVernalPoolMiniProject.Rmd) for full code). To make the analysis computationally tractable, I chose to focus on three towns in Central Massachusetts: Berlin, Bolton, Hudson, Marlborough, Stow. Vectors for [municipal boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005), and [land cover/use](https://www.mass.gov/info-details/massgis-data-2016-land-coverland-use) were downloaded from the MassGIS website on January 18, 2024. Potential pools were represented as geo points identifying the center of a pool and were dated to 1993-2000. Wetlands and land cover/use were represented as polygons and were dated to 2005 and 2016 respectively. Potential pools and wetlands were plotted versus municipal boundaries in the NAD83 / Massachusetts Mainland projection and visually inspected for errors.
+For this analysis, I used `r substring(R.Version()$version.string, 1, 15)`, relying primarily on the terra and sf packages (see [Rmd](https://github.com/Skirnir3141/VernalPoolMiniProject/blob/master/MichaelJordanVernalPoolMiniProject.Rmd) for full code). To make the analysis computationally tractable, I chose to focus on four towns in Central Massachusetts: Berlin, Bolton, Hudson, and Stow. Vectors for [municipal boundaries](https://www.mass.gov/info-details/massgis-data-municipalities), [potential vernal pools](https://www.mass.gov/info-details/massgis-data-nhesp-potential-vernal-pools), [wetland boundaries](https://www.mass.gov/info-details/massgis-data-massdep-wetlands-2005), and [land cover/use](https://www.mass.gov/info-details/massgis-data-2016-land-coverland-use) were downloaded from the MassGIS website on January 18, 2024. Potential pools were represented as geo points identifying the center of a pool and were dated to 1993-2000. Wetlands and land cover/use were represented as polygons and were dated to 2005 and 2016 respectively. Potential pools and wetlands were plotted versus municipal boundaries in the NAD83 / Massachusetts Mainland projection and visually inspected for errors.
 
 ```{r wetlands, include=FALSE, error=FALSE, warning=FALSE, message=FALSE}
 # Check whether a potential pool overlaps with a wetland. If it does, set its
@@ -240,89 +242,76 @@ Finally, the prioritization index does not account for whether a potential pool 
 
 ## Results
 
-`r nrow(cm.pp[cm.pp$dtw > 150, ])` potential pools were excluded because they were not in close enough proximity to a wetland to fall under WPA jurisdiction. This allowed me to cut down the data set by `r scales::percent(round(nrow(cm.pp[cm.pp$dtw > 150, ]) / nrow(cm.pp), digits = 2))` and prevent wasted effort on pools that are unlikely to fall under WPA jurisdiction.
+`r nrow(cm.pp[cm.pp$dtw > 150, ])` potential pools were excluded because they were not in close enough proximity to a wetland to fall under WPA jurisdiction. This allowed me to cut down the data set by `r scales::percent(round(nrow(cm.pp[cm.pp$dtw > 150, ]) / nrow(cm.pp), digits = 2))` and prevent wasted effort on pools that are unlikely to be protected by the WPA.
 
-Within the remaining `r nrow(cm.pp.f)` pools, several hot spots of geographically clustered pools that were atypically close to human development were identified. An example is plotted below.
+Within the remaining `r nrow(cm.pp.f)` pools, I produced a map that citizen groups can use to identify hot spots of high value potential pools (coded in a heat map with more yellow colors indicating higher value). To validate, I also produced a zoomed in map and plotted potential pools, potential pools removed from the data set, wetlands, and impervious features.
 
-```{r results_map, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
+```{r results_map, echo=FALSE, fig.height=2, fig.align='center', error=FALSE, warning=FALSE, message=FALSE}
 
+# Set graphical parameters
 par(mfrow = c(1, 2), mar = c(1, 1, 1, 1))
 
-# Plot potential pools versus wetlands in all towns.
-terra::plot(
-  sf::st_geometry(cm.towns),
-  col = "white",
-  main = "High Level Potential Pool Heatmap")
-terra::plot(
-  sf::st_geometry(cm.wetlands),
-  add = TRUE,
-  col = "lightblue")
-terra::plot(
-  cm.pp.f["prio"],
-  add = TRUE,
-  breaks = seq(
-    min(cm.pp.f$prio),
-    max(cm.pp.f$prio),
-    by = (max(cm.pp.f$prio) - min(cm.pp.f$prio)) / 10),
-  pal = rev(
-    heat.colors(
-      length(
-        seq(
-          round(min(cm.pp.f$prio)),
-          round(max(cm.pp.f$prio)),
-          by = (max(cm.pp.f$prio) - min(cm.pp.f$prio)) / 10)) - 1)),
-  pch = 20,
-  cex = 2)
+# Add town centroid for label plotting. Create plot of potential pools versus
+# wetlands in all towns.
+cm.towns <- cbind(cm.towns, st_coordinates(st_centroid(cm.towns)))
+plot.all <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = cm.towns, fill = "white") +
+  ggplot2::geom_sf(data = cm.wetlands, fill = "blue") +
+  ggplot2::geom_sf(data = cm.pp.f, aes(color = prio), pch = 20, cex = 5) +
+  ggplot2::scale_color_gradient(
+    low="darkred", high="yellow", trans = "reverse", name = "Pool\nPrio") + 
+  ggplot2::geom_label(
+    data = cm.towns, aes(X, Y, label = TOWN), size = 4, fontface = "bold") +
+  ggplot2::theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    rect = element_blank(),
+    legend.margin = margin( 0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0))
 
-# Plot potential pools versus wetlands, impervious features, and pools removed
-# from analysis for a zoomed in area of Hudson.
-terra::plot(
-  sf::st_geometry(
-    st_crop(
-      cm.towns,
-      c(xmin = 196687.2, ymin = 903000, xmax = 202250.2, ymax = 906000))),
-  col = "white",
-  main = "Zoomed In Area")
-terra::plot(
-  sf::st_geometry(cm.wetlands),
-  add = TRUE,
-  col = "lightblue")
-terra::plot(
-  sf::st_geometry(cm.tiles.f),
-  add = TRUE,
-  col = "grey")
-terra::plot(
-  cm.pp.f["prio"],
-  add = TRUE,
-  breaks = seq(
-    min(cm.pp.f$prio),
-    max(cm.pp.f$prio),
-    by = (max(cm.pp.f$prio) - min(cm.pp.f$prio)) / 10),
-  pal = rev(
-    heat.colors(
-      length(
-        seq(
-          round(min(cm.pp.f$prio)),
-          round(max(cm.pp.f$prio)),
-          by = (max(cm.pp.f$prio) - min(cm.pp.f$prio)) / 10)) - 1)),
-  pch = 20,
-  cex = 2)
-terra::plot(
-  sf::st_geometry(cm.pp[cm.pp$dtw > 150, ]),
-  add = TRUE,
-  pch = 13,
-  cex = 3)
+# Set extent, create object for deleted pools, and plot potential pools versus
+# wetlands, impervious features, and pools removed from analysis for a zoomed in
+# area of Hudson.
+ext <- c(xmin = 196687.2, ymin = 903000, xmax = 202250.2, ymax = 906000)
+cm.pp.del <- cm.pp[cm.pp$dtw > 150, ]
+cm.pp.del$del <- ""
+plot.zoom <- ggplot2::ggplot() +
+  ggplot2::geom_sf(data = sf::st_crop(cm.towns, ext), fill = "white") +
+  ggplot2::geom_sf(data = sf::st_crop(cm.wetlands, ext), fill = "blue") +
+  ggplot2::geom_sf(data = sf::st_crop(cm.tiles.f, ext), fill = "grey") +
+  ggplot2::geom_sf(
+    data = sf::st_crop(cm.pp.f, ext), aes(color = prio), pch = 20, cex = 5) +
+  ggplot2::scale_color_gradient(
+    low="darkred", high="yellow", trans = "reverse", guide = "none") + 
+  ggplot2::geom_sf(
+    data = sf::st_crop(cm.pp.del, ext), aes(fill = del), pch = 13, cex = 5) +
+  ggplot2::guides(fill = ggplot2::guide_legend(title = "Excluded\nPool")) +
+  ggplot2::theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    rect = element_blank(),
+    legend.margin = margin( 0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0))
+
+# Plot maps side-by-side
+cowplot::plot_grid(plot.all, plot.zoom, labels = "AUTO")
 ```
-Geo coordinates of high value clusters are available for interested citizen groups.
+In addition to maps, geo coordinates of clusters and pools can be provided to interested citizen groups.
 
-```{r results_table, echo=FALSE, fig.align='center', out.width="75%", out.height="75%", error=FALSE, warning=FALSE, message=FALSE}
+```{r results_table, echo=FALSE, fig.align='center', error=FALSE, warning=FALSE, message=FALSE}
 
 table.output <- dplyr::arrange(
   cluster.prios[c("town", "prio", "n", "avg.dtf", "centroid")],
   prio)[1:5, ]
 colnames(table.output) <- c(
-  "Town", "Priority", "No. of Pools", "Avg Distance To Impervious Feature",
-  "GIS Coords")
+  "Town", "Priority", "No. of Pools", "Avg Distance To Impervious Feature (10m)",
+  "Cluster GIS Coords")
 knitr::kable(
   table.output,
   align = "c",
@@ -333,7 +322,7 @@ knitr::kable(
 
 I was able to filter potential vernal pools, map them, and apply a reasonable index to prioritize which pools to review.
 
-In future work, I'd like to address the potential sources of bias discussed above. Additionally, I'd like to move beyond back-of-the-envelope indexing and create a statistical model to predict which potentials pools are likely to be strong candidates for certification. To do this, I would ideally have access to data on pools that were previously on the potential pool list, were reviewed, and the outcome of that review. Perhaps in the future such data could be compiled in partnership with citizen groups. Alternatively, I could explore using data on currently certified pools to extrapolate predictors.
+In future work, I'd like to expand this analysis to the entire state and address the potential sources of bias discussed above. Additionally, I'd like to move beyond back-of-the-envelope indexing and create a statistical model to predict which potential pools are likely to be strong candidates for certification. To do this, I would ideally have access to data on pools that were previously on the potential pool list, were reviewed, and the outcome of that review. Perhaps in the future such data could be compiled in partnership with citizen groups. Alternatively, I could explore using data on currently certified pools to extrapolate predictors.
 
 ## Reference List
 
