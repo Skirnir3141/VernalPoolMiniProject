@@ -339,3 +339,18 @@ ggplot2::ggplot() +
     legend.margin = margin( 0, 0, 0, 0),
     legend.box.margin = margin(0, 0, 0, 0))
 cowplot::plot_grid(test1, test2, labels = NULL)
+
+
+```{r results_table, echo=FALSE, fig.align='center', error=FALSE, warning=FALSE, message=FALSE}
+
+table.output <- dplyr::arrange(
+  cluster.prios[c("town", "prio", "n", "avg.dtf", "centroid")],
+  prio)[1:5, ]
+colnames(table.output) <- c(
+  "Town", "Priority", "No. of Pools", "Avg Distance To Impervious Feature (10m)",
+  "Cluster GIS Coords")
+knitr::kable(
+  table.output,
+  align = "c",
+  caption = "Cluster Geo Coords & Ranking")
+```
