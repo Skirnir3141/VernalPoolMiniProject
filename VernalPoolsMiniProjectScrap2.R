@@ -268,9 +268,13 @@ terra::plot(
   col = "white",
   main = "Potential Pool Heatmap")
 terra::plot(
-  sf::st_geometry(cm.wetlands),
+  sf::st_geometry(cm.pp),
   add = TRUE,
   col = "lightblue")
+terra::plot(
+  sf::st_geometry(cm.cp),
+  add = TRUE,
+  col = "black")
 
 dev.off()
 terra::plot(
@@ -354,3 +358,28 @@ knitr::kable(
   align = "c",
   caption = "Cluster Geo Coords & Ranking")
 ```
+
+
+ggplot2::ggplot() +
+  ggplot2::geom_sf(data = sf::st_crop(cm.towns, ext2), fill = "white") +
+  #ggplot2::geom_sf(data = sf::st_crop(cm.wetlands, ext2), fill = "lightblue") +
+  ##ggplot2::geom_sf(data = sf::st_crop(cm.tiles.f, ext2), fill = "lightgrey") +
+  ggplot2::geom_sf(
+    data = sf::st_crop(cm.pp.f, ext2), aes(color = prio), pch = 20, cex = 5) +
+  ggplot2::scale_color_gradient(
+    low="darkred", high="yellow", trans = "reverse", guide = "none") + 
+  ggplot2::geom_sf(
+    data = sf::st_crop(cm.ep, ext2),
+    aes(shape = factor(type)), size = 2) +
+  scale_shape_manual(values = c(17, 13)) +
+  ggplot2::theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    rect = element_blank(),
+    legend.margin = margin( 0, 0, 0, 0),
+    legend.box.margin = margin(0, 0, 0, 0),
+    legend.title = element_blank(),
+    legend.position = "top")
